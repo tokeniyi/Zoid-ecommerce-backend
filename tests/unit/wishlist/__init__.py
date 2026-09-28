@@ -1,0 +1,1 @@
+"""Wishlist unit tests."""

@@ -1,0 +1,1 @@
+"""Orders domain model (framework-free)."""

@@ -1,0 +1,1 @@
+"""Payments domain: provider-independent payment capability and transaction records."""

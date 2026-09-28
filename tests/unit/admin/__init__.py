@@ -1,0 +1,1 @@
+"""Admin domain unit tests."""

@@ -1,0 +1,1 @@
+"""Payments domain model and gateway contract (framework-free)."""

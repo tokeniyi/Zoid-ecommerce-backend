@@ -1,0 +1,1 @@
+"""Orders domain: checkout, order records and their lifecycle."""

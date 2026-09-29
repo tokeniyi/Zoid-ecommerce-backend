@@ -1,0 +1,89 @@
+version: '3.9'
+
+services:
+  # PostgreSQL database
+  postgres:
+    image: postgres:17-alpine
+    container_name: zoid-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: zoid
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - zoid-network
+
+  # Redis cache
+  redis:
+    image: redis:7-alpine
+    container_name: zoid-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - zoid-network
+
+  # FastAPI backend
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: zoid-backend
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/zoid
+      REDIS_URL: redis://redis:6379/0
+      APP_ENV: development
+      DEBUG: "true"
+      DB_ECHO: "false"
+      PAYMENT_PROVIDER: paystack
+      EMAIL_PROVIDER: resend
+      STORAGE_PROVIDER: cloudinary
+      AUTH_SESSION_STRATEGY: jwt_cookie
+      JWT_SECRET: change-me-in-production
+      JWT_ALGORITHM: HS256
+      SESSION_TTL_MINUTES: 10080
+      COOKIE_NAME: app_session_id
+      COOKIE_SECURE: "false"
+      COOKIE_HTTPONLY: "true"
+      COOKIE_SAMESITE: lax
+      RATE_LIMIT_ENABLED: "true"
+      RATE_LIMIT_PER_MINUTE: 60
+      LOGIN_RATE_LIMIT_PER_MINUTE: 5
+      CORS_ORIGINS: http://localhost:5173
+      # Add other env vars here or use an .env file (see env_file below)
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - .:/app
+    networks:
+      - zoid-network
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  zoid-network:
+    driver: bridge

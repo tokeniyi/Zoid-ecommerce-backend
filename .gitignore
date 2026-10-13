@@ -11,17 +11,35 @@ dist/
 venv/
 env/
 
+# uv
+.uv/
+
 # Environment / secrets
 .env
+.env.local
+.env.*.local
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Alembic (ignore pycache but track versions/)
+migrations/__pycache__/
+migrations/versions/__pycache__/
 
 # Test / coverage
 .pytest_cache/
 .coverage
 htmlcov/
 .ruff_cache/
+coverage.xml
 
 # IDE / OS
 .idea/
 .vscode/
 *.log
 .DS_Store
+
+# Docker
+.docker/

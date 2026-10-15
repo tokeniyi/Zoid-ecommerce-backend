@@ -1468,7 +1468,7 @@ All automated checks pass and no forbidden dependency direction is present.
 
 ## Objective
 
-Document the implemented system and make the repository reproducible.
+Document the implemented system including all errors encountered during implementation and make the repository reproducible.
 
 ## Required documents
 

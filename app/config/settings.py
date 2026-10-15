@@ -49,7 +49,8 @@ class Settings(BaseSettings):
     session_ttl_minutes: int = 60 * 24 * 7
     cookie_name: str = "app_session_id"
     cookie_domain: str = ""
-    cookie_secure: bool = True
+    # Dev defaults: cookie_secure=False so HttpOnly cookies work over http://localhost
+    cookie_secure: bool = False
     cookie_httponly: bool = True
     cookie_samesite: str = "lax"
 
@@ -59,9 +60,9 @@ class Settings(BaseSettings):
     stripe_secret_key: str = Field(default="", repr=False)
     stripe_webhook_secret: str = Field(default="", repr=False)
     payment_currency: str = "NGN"
-    # Where a hosted checkout sends the browser back to. Every supported provider
-    # insists on a return URL when a payment session is opened.
-    payment_return_url: str = "http://localhost:5173/checkout"
+    # Where the provider's hosted checkout returns the customer to.
+    # Default matches the Vite dev server (port 3000).
+    payment_return_url: str = "http://localhost:3000/checkout"
 
     # --- Email ---
     resend_api_key: str = Field(default="", repr=False)
@@ -91,7 +92,7 @@ class Settings(BaseSettings):
     login_rate_limit_per_minute: int = 5
 
     # --- CORS (comma-separated origins) ---
-    cors_origins: str = "http://localhost:5173"
+    cors_origins: str = "http://localhost:3000"
     cors_allow_credentials: bool = True
 
     @property

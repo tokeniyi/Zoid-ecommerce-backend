@@ -7,7 +7,6 @@ decimal strings instead (for example, ``"58500.00"``).
 
 from decimal import Decimal
 
-
 _MONEY_PLACES = Decimal("0.01")
 
 

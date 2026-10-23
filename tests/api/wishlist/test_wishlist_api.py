@@ -95,7 +95,7 @@ async def test_add_list_and_remove_flow(client: TestClient) -> None:
     assert added.status_code == 200, added.text
     assert added.json()["count"] == 1
     assert added.json()["items"][0]["product_slug"] == slug
-    assert added.json()["items"][0]["price"] == 33000.0
+    assert added.json()["items"][0]["price"] == "33000.00"
 
     listed = client.get(f"{API}/wishlist", cookies={COOKIE: session})
     assert listed.json()["count"] == 1

@@ -102,7 +102,7 @@ async def test_guest_creates_cart_and_adds_item(client: TestClient) -> None:
     body = response.json()
     assert body["count"] == 2
     assert body["items"][0]["product_slug"] == slug
-    assert body["items"][0]["unit_price"] == 25000.0
+    assert body["items"][0]["unit_price"] == "25000.00"
     guest_token = response.cookies.get(GUEST_CART_COOKIE)
     assert guest_token, "guest cart cookie should be issued"
 

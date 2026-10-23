@@ -307,7 +307,7 @@ async def test_an_admin_adds_a_product_the_storefront_then_sells(client: TestCli
     assert created.status_code == 201, created.text
     product = created.json()
     assert product["slug"] == payload["slug"]
-    assert product["price"] == 55000.0
+    assert product["price"] == "55000.00"
     assert product["sizes"] == ["M", "L"]
     assert product["stock"] == {"M": 4, "L": 0}
     assert product["category"] == "Admin Created"
@@ -377,14 +377,14 @@ async def test_an_admin_edits_a_product_without_losing_the_rest(client: TestClie
     assert edited.status_code == 200, edited.text
     after = edited.json()
     assert after["name"] == "Renamed Jersey"
-    assert after["price"] == 61000.0
+    assert after["price"] == "61000.00"
     # Not sent, so not touched: identity, category, sizes and the shelf itself.
     assert after["slug"] == product["slug"]
     assert after["category"] == product["category"]
     assert after["sizes"] == product["sizes"]
     assert after["stock"] == product["stock"]
     assert after["is_bestseller"] is True
-    assert client.get(f"{API}/products/{after['slug']}").json()["price"] == 61000.0
+    assert client.get(f"{API}/products/{after['slug']}").json()["price"] == "61000.00"
 
 
 async def test_an_empty_edit_changes_nothing_and_breaks_nothing(client: TestClient) -> None:
@@ -411,7 +411,7 @@ async def test_a_price_the_catalog_would_not_accept_is_not_a_price(client: TestC
     )
 
     assert refused.status_code == 422, refused.text
-    assert client.get(f"{API}/products/{product['slug']}").json()["price"] == 55000.0
+    assert client.get(f"{API}/products/{product['slug']}").json()["price"] == "55000.00"
 
 
 async def test_hiding_a_product_takes_it_off_the_shelf_not_off_the_record(
@@ -586,7 +586,7 @@ async def test_the_admin_sees_the_order_book_as_the_store_keeps_it(
     seen = find()
     assert seen["status"] == "PENDING_PAYMENT"
     assert seen["reference"] == order["reference"]
-    assert seen["total"] == float(PRICE) * 2
+    assert seen["total"] == "84000.00"
     assert seen["count"] == 2
     # The shop needs the delivery, not just the money.
     assert seen["contact_name"] == CHECKOUT["contact_name"]
@@ -788,4 +788,4 @@ async def test_the_dashboard_counts_stock_that_can_actually_be_sold(
     # 6 made, 4 reserved → 2 left: still low, still only worth 2 x 1000 of it.
     assert _shelf(client, product["slug"]) == {"M": 2}
     assert stats["low_stock"] >= 1
-    assert stats["inventory_value"] >= 2000.0
+    assert Decimal(stats["inventory_value"]) >= Decimal("2000.00")

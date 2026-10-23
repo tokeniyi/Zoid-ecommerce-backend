@@ -10,6 +10,7 @@ from __future__ import annotations
 from pydantic import BaseModel
 
 from app.domains.products.domain.entities import Category, Product
+from app.shared.money import serialize_money
 from app.shared.pagination import Page
 
 
@@ -29,7 +30,7 @@ class ProductSummaryResponse(BaseModel):
     slug: str
     name: str
     category: str
-    price: float
+    price: str
     currency: str
     image: str | None
     sizes: list[str]
@@ -71,7 +72,7 @@ def serialize_summary(product: Product) -> ProductSummaryResponse:
         slug=product.slug,
         name=product.name,
         category=product.category.name,
-        price=float(product.price),
+        price=serialize_money(product.price),
         currency=product.currency,
         image=product.primary_image,
         sizes=product.sizes,

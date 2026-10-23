@@ -10,7 +10,6 @@ cannot hold a customer session; it is authenticated by signature instead.
 
 from __future__ import annotations
 
-from decimal import Decimal
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request
@@ -71,9 +70,8 @@ async def refund_payment(
     service: Annotated[PaymentService, Depends(get_payment_service)],
 ) -> PaymentResponse:
     """Refund a settled payment (admin/order-management only)."""
-    amount = Decimal(str(body.amount)) if body.amount is not None else None
     transaction, refund = await service.refund(
-        reference=body.reference, amount=amount, reason=body.reason
+        reference=body.reference, amount=body.amount, reason=body.reason
     )
     return serialize_refund(transaction, refund)
 

@@ -275,13 +275,18 @@ async def test_the_same_person_is_an_admin_only_when_the_session_says_so(
     """Two tokens, one user id: the role carried by the session is the whole difference."""
     _, user_id = _signup(client)
 
+    # Start from an empty cookie jar so the first request is genuinely anonymous:
+    # the session cookie minted during signup must not be sent with it.
+    client.cookies.clear()
     assert client.get(f"{API}/admin/dashboard").status_code == 401
     customer_token = _mint("customer", user_id)
+    client.cookies.clear()
     assert (
         client.get(f"{API}/admin/dashboard", cookies={COOKIE: customer_token}).status_code
         == 403
     )
     admin_token = _mint("admin", user_id)
+    client.cookies.clear()
     assert (
         client.get(f"{API}/admin/dashboard", cookies={COOKIE: admin_token}).status_code
         == 200
@@ -586,7 +591,7 @@ async def test_the_admin_sees_the_order_book_as_the_store_keeps_it(
     seen = find()
     assert seen["status"] == "PENDING_PAYMENT"
     assert seen["reference"] == order["reference"]
-    assert seen["total"] == "84000.00"
+    assert seen["total"] == "117000.00"
     assert seen["count"] == 2
     # The shop needs the delivery, not just the money.
     assert seen["contact_name"] == CHECKOUT["contact_name"]

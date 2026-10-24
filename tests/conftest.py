@@ -1,10 +1,13 @@
 """Shared pytest fixtures.
 
-A single session-scoped ``TestClient`` is used by all database-backed API tests
-so the application's lazily-created global async engine lives on one event loop
-for the whole session. Creating a client per module would bind the shared
-engine's pooled connections to different (soon-closed) loops and break
-subsequent tests with "Event loop is closed".
+A function-scoped ``TestClient`` is used by all database-backed API tests so
+every test starts with an isolated client and an empty cookie jar. Login and
+guest-cart cookies from one test can never authenticate requests in another.
+
+The application's lazily-created global async engine lives on the client's own
+event loop for the duration of that test only: the TestClient context manager
+runs the app lifespan, which creates the engine on startup and disposes it on
+shutdown, so no engine (or pooled connection) outlives the loop that created it.
 """
 
 from __future__ import annotations
@@ -17,7 +20,7 @@ from fastapi.testclient import TestClient
 from app.main import app
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture
 def client() -> Iterator[TestClient]:
     with TestClient(app) as test_client:
         yield test_client

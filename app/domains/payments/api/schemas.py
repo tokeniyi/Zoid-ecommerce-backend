@@ -7,6 +7,8 @@ the URL behind that action came from Paystack or Stripe is not expressible here.
 
 from __future__ import annotations
 
+from decimal import Decimal
+
 from pydantic import BaseModel, Field
 
 from app.domains.payments.domain.entities import Transaction
@@ -16,6 +18,7 @@ from app.domains.payments.domain.gateway import (
     PaymentVerification,
     RefundResult,
 )
+from app.shared.money import serialize_money
 
 
 class InitiatePaymentRequest(BaseModel):
@@ -28,7 +31,7 @@ class VerifyPaymentRequest(BaseModel):
 
 class RefundPaymentRequest(BaseModel):
     reference: str = Field(min_length=6, max_length=64)
-    amount: float | None = Field(default=None, gt=0)
+    amount: Decimal | None = Field(default=None, gt=0)
     reason: str | None = Field(default=None, max_length=300)
 
 
@@ -41,7 +44,7 @@ class PaymentResponse(BaseModel):
     success: bool
     payment_id: str
     status: str
-    amount: float
+    amount: str
     currency: str
     provider: str
     order_id: int
@@ -79,7 +82,7 @@ def serialize_initiation(
         success=initiation.success,
         payment_id=transaction.reference,
         status=transaction.status.value,
-        amount=float(transaction.amount),
+        amount=serialize_money(transaction.amount),
         currency=transaction.currency,
         provider=transaction.provider,
         order_id=transaction.order_id,
@@ -95,7 +98,7 @@ def serialize_verification(
         success=verification.success,
         payment_id=transaction.reference,
         status=transaction.status.value,
-        amount=float(transaction.amount),
+        amount=serialize_money(transaction.amount),
         currency=transaction.currency,
         provider=transaction.provider,
         order_id=transaction.order_id,
@@ -108,7 +111,7 @@ def serialize_refund(transaction: Transaction, refund: RefundResult) -> PaymentR
         success=refund.success,
         payment_id=transaction.reference,
         status=transaction.status.value,
-        amount=float(refund.amount if refund.amount is not None else transaction.amount),
+        amount=serialize_money(refund.amount if refund.amount is not None else transaction.amount),
         currency=transaction.currency,
         provider=transaction.provider,
         order_id=transaction.order_id,

@@ -112,14 +112,14 @@ async def test_checkout_creates_pending_payment_order(client: TestClient) -> Non
     # Created as unpaid: success here never means "paid".
     assert order["status"] == "PENDING_PAYMENT"
     assert order["reference"].startswith("ZD-")
-    assert order["total"] == float(PRICE) * 2
+    assert order["total"] == "84000.00"
     assert order["count"] == 2
     assert order["contact_email"] == CHECKOUT["contact_email"]
     assert order["notes"] == CHECKOUT["notes"]
     line = order["items"][0]
     assert (line["product_slug"], line["size"], line["quantity"]) == (slug, "M", 2)
-    assert line["unit_price"] == float(PRICE)
-    assert line["line_total"] == float(PRICE) * 2
+    assert line["unit_price"] == "42000.00"
+    assert line["line_total"] == "84000.00"
 
     fetched = client.get(f"{API}/orders/{order['id']}", cookies={COOKIE: session})
     assert fetched.status_code == 200, fetched.text

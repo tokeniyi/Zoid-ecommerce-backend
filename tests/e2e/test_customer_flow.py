@@ -287,7 +287,7 @@ async def test_anonymous_shopper_browses_and_bags_a_jersey_but_cannot_buy(
     browsed = client.get(f"{API}/products/{slug}")
     assert browsed.status_code == 200, browsed.text
     assert browsed.json()["slug"] == slug
-    assert browsed.json()["price"] == float(PRICE)
+    assert browsed.json()["price"] == "42000.00"
 
     # A guest can fill a cart, carried by the guest-cart cookie.
     added = _add_to_cart(client, slug)

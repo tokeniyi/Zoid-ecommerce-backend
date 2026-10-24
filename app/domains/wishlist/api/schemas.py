@@ -5,6 +5,7 @@ from __future__ import annotations
 from pydantic import BaseModel, Field
 
 from app.domains.wishlist.domain.entities import Wishlist, WishlistItem
+from app.shared.money import serialize_money
 
 
 class WishlistItemResponse(BaseModel):
@@ -12,7 +13,7 @@ class WishlistItemResponse(BaseModel):
     product_slug: str
     product_name: str
     image: str
-    price: float
+    price: str
     currency: str
 
 
@@ -31,7 +32,7 @@ def serialize_item(item: WishlistItem) -> WishlistItemResponse:
         product_slug=item.product_slug,
         product_name=item.product_name,
         image=item.image,
-        price=float(item.unit_price),
+        price=serialize_money(item.unit_price),
         currency=item.currency,
     )
 

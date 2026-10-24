@@ -96,7 +96,7 @@ async def test_get_product_by_slug(client: TestClient) -> None:
     detail = response.json()
     assert detail["slug"] == product.slug
     assert detail["category"] == "Test Curated"
-    assert detail["price"] == 58500.0
+    assert detail["price"] == "58500.00"
     assert detail["currency"] == "NGN"
     assert detail["is_bestseller"] is True
     assert len(detail["gallery"]) == 3

@@ -23,6 +23,7 @@ from app.domains.products.api.schemas import ProductDetailResponse, serialize_de
 from app.domains.products.domain.entities import Product
 from app.domains.users.api.schemas import UserProfileResponse
 from app.domains.users.domain.entities import User
+from app.shared.money import serialize_money
 from app.shared.pagination import Page
 
 #: What an admin may edit on an existing product. Identity (slug) and the size
@@ -126,7 +127,7 @@ class AdminStockResponse(BaseModel):
 class AdminCatalogStatsResponse(BaseModel):
     products: int
     units_available: int
-    inventory_value: float
+    inventory_value: str
     out_of_stock: int
     low_stock: int
     bestsellers: int
@@ -175,7 +176,7 @@ def serialize_dashboard(overview: DashboardOverview) -> AdminDashboardResponse:
         catalog=AdminCatalogStatsResponse(
             products=catalog.products,
             units_available=catalog.units_available,
-            inventory_value=float(catalog.inventory_value),
+            inventory_value=serialize_money(catalog.inventory_value),
             out_of_stock=catalog.out_of_stock,
             low_stock=catalog.low_stock,
             bestsellers=catalog.bestsellers,

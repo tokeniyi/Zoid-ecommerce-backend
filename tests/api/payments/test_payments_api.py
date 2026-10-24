@@ -292,7 +292,7 @@ async def test_initiate_verify_and_refund_flow(
     assert body["success"] is True
     assert body["status"] == "pending"
     assert body["payment_id"].startswith("PAY-")
-    assert body["amount"] == float(PRICE)
+    assert body["amount"] == "42000.00"
     assert body["provider"] == "scripted"
     assert body["next_action"]["type"] == "redirect"
     assert body["next_action"]["url"].startswith("https://provider.example/checkout/")

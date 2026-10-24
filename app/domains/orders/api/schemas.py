@@ -7,6 +7,7 @@ from datetime import datetime
 from pydantic import BaseModel, Field
 
 from app.domains.orders.domain.entities import Order, OrderItem
+from app.shared.money import serialize_money
 
 
 class CreateOrderRequest(BaseModel):
@@ -26,8 +27,8 @@ class OrderItemResponse(BaseModel):
     product_name: str
     size: str
     quantity: int
-    unit_price: float
-    line_total: float
+    unit_price: str
+    line_total: str
     image: str
     currency: str
 
@@ -37,8 +38,8 @@ class OrderResponse(BaseModel):
     reference: str
     status: str
     currency: str
-    subtotal: float
-    total: float
+    subtotal: str
+    total: str
     count: int
     contact_name: str
     contact_email: str
@@ -55,7 +56,7 @@ class OrderSummaryResponse(BaseModel):
     reference: str
     status: str
     currency: str
-    total: float
+    total: str
     count: int
     created_at: datetime | None
 
@@ -67,8 +68,8 @@ def serialize_item(item: OrderItem) -> OrderItemResponse:
         product_name=item.product_name,
         size=item.size,
         quantity=item.quantity,
-        unit_price=float(item.unit_price),
-        line_total=float(item.line_total),
+        unit_price=serialize_money(item.unit_price),
+        line_total=serialize_money(item.line_total),
         image=item.image,
         currency=item.currency,
     )
@@ -80,8 +81,8 @@ def serialize_order(order: Order) -> OrderResponse:
         reference=order.reference,
         status=order.status.value,
         currency=order.currency,
-        subtotal=float(order.subtotal),
-        total=float(order.total),
+        subtotal=serialize_money(order.subtotal),
+        total=serialize_money(order.total),
         count=order.item_count,
         contact_name=order.contact_name,
         contact_email=order.contact_email,
@@ -100,7 +101,7 @@ def serialize_order_summary(order: Order) -> OrderSummaryResponse:
         reference=order.reference,
         status=order.status.value,
         currency=order.currency,
-        total=float(order.total),
+        total=serialize_money(order.total),
         count=order.item_count,
         created_at=order.created_at,
     )

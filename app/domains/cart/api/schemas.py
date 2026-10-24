@@ -5,6 +5,7 @@ from __future__ import annotations
 from pydantic import BaseModel, Field
 
 from app.domains.cart.domain.entities import Cart, CartItem
+from app.shared.money import serialize_money
 
 
 class CartItemResponse(BaseModel):
@@ -13,8 +14,8 @@ class CartItemResponse(BaseModel):
     product_name: str
     size: str
     quantity: int
-    unit_price: float
-    line_total: float
+    unit_price: str
+    line_total: str
     image: str
     currency: str
 
@@ -22,7 +23,7 @@ class CartItemResponse(BaseModel):
 class CartResponse(BaseModel):
     items: list[CartItemResponse]
     count: int
-    total: float
+    total: str
     currency: str
 
 
@@ -43,8 +44,8 @@ def serialize_item(item: CartItem) -> CartItemResponse:
         product_name=item.product_name,
         size=item.size,
         quantity=item.quantity,
-        unit_price=float(item.unit_price),
-        line_total=float(item.line_total),
+        unit_price=serialize_money(item.unit_price),
+        line_total=serialize_money(item.line_total),
         image=item.image,
         currency=item.currency,
     )
@@ -54,6 +55,6 @@ def serialize_cart(cart: Cart) -> CartResponse:
     return CartResponse(
         items=[serialize_item(item) for item in cart.items],
         count=cart.count,
-        total=float(cart.total),
+        total=serialize_money(cart.total),
         currency=cart.currency,
     )

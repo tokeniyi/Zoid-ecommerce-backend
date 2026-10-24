@@ -14,7 +14,7 @@ from app.security.protection.request_validation import install_request_validatio
 
 def test_cors_options_are_configuration_driven() -> None:
     options = cors_middleware_options()
-    assert "http://localhost:5173" in options["allow_origins"]
+    assert "http://localhost:3000" in options["allow_origins"]
     assert isinstance(options["allow_credentials"], bool)
 
 

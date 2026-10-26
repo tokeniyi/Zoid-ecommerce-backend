@@ -11,6 +11,7 @@ from __future__ import annotations
 from decimal import Decimal
 from uuid import uuid4
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.config import get_settings
@@ -27,6 +28,8 @@ from app.infrastructure.persistence.sqlalchemy.session import (
     create_engine_from_url,
 )
 from app.infrastructure.persistence.sqlalchemy.unit_of_work import SqlAlchemyUnitOfWork
+
+pytestmark = pytest.mark.database
 
 _settings = get_settings()
 API = _settings.api_v1_prefix

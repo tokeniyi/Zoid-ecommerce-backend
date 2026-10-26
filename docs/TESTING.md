@@ -107,3 +107,17 @@ that test alone with `-vv --durations=0`.
   exercise the limiter on a throwaway app.
 - **Migration-chain checks** (schema drift and downgrade round-trip) are
   planned separately.
+
+## Continuous integration
+
+`.github/workflows/ci.yml` runs on every pull request and on every push to
+`main`. It has two jobs:
+
+- **lint:** `ruff check .`
+- **test:** the full suite, against a PostgreSQL 17 service that exists only
+  for the duration of the job (`zoid_test`, local to the runner).
+
+The test job records the Python and package versions, the 25 slowest tests and
+coverage. It uploads the JUnit report as an artifact even when tests fail. No
+repository secrets are needed: the tests never read `.env`, and every provider
+call is mocked.

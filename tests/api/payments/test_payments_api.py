@@ -67,6 +67,8 @@ from app.security.authentication.session import session_strategy_from_settings
 from app.shared.exceptions import ProviderNotConfiguredError
 from tests.unit.payments.test_order_notification import RecordingSender
 
+pytestmark = pytest.mark.database
+
 _settings = get_settings()
 API = _settings.api_v1_prefix
 COOKIE = _settings.cookie_name

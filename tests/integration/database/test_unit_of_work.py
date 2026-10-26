@@ -22,6 +22,8 @@ from sqlalchemy.orm import DeclarativeBase
 from app.config import get_settings
 from app.infrastructure.persistence.sqlalchemy.unit_of_work import SqlAlchemyUnitOfWork
 
+pytestmark = pytest.mark.database
+
 
 class _ProbeBase(DeclarativeBase):
     # Dedicated metadata so this scratch table never enters the domain Base

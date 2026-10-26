@@ -9,9 +9,12 @@ from __future__ import annotations
 
 from uuid import uuid4
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.config import get_settings
+
+pytestmark = pytest.mark.database
 
 _settings = get_settings()
 API = _settings.api_v1_prefix

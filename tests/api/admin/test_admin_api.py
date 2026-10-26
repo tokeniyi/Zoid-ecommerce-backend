@@ -18,6 +18,7 @@ from decimal import Decimal
 from typing import Any
 from uuid import uuid4
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.config import get_settings
@@ -36,6 +37,8 @@ from app.infrastructure.persistence.sqlalchemy.session import (
 from app.infrastructure.persistence.sqlalchemy.unit_of_work import SqlAlchemyUnitOfWork
 from app.main import app
 from app.security.authentication.session import session_strategy_from_settings
+
+pytestmark = pytest.mark.database
 
 _settings = get_settings()
 API = _settings.api_v1_prefix

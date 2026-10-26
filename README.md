@@ -90,11 +90,15 @@ uv run alembic heads                         # show current head revision
 
 ## Run the tests
 
-The suite needs a reachable PostgreSQL database (API/integration tests run
-against it); provider calls are always mocked.
+Database-backed tests run only against a dedicated, disposable PostgreSQL
+database named by `TEST_DATABASE_URL` (for example `zoid_test`), never against
+`DATABASE_URL`. Provider calls are always mocked. See
+[docs/TESTING.md](docs/TESTING.md) for setup, the safety rules and the recorded
+validation procedure.
 
 ```powershell
-uv run pytest                 # whole suite
+uv run pytest -m "not database"   # no PostgreSQL needed
+uv run pytest                 # whole suite (needs TEST_DATABASE_URL)
 uv run pytest tests/unit      # a subset
 uv run pytest --cov=app --cov-report=term-missing   # with coverage
 ```

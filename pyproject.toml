@@ -67,3 +67,10 @@ known-first-party = ["app"]
 testpaths = ["tests"]
 asyncio_mode = "auto"
 pythonpath = ["."]
+addopts = ["--strict-markers"]
+markers = [
+    "database: needs the disposable PostgreSQL database named by TEST_DATABASE_URL",
+]
+# A test that hangs dumps every thread's stack after this many seconds, so a
+# hang is reported as a hang (with its location), not as a silent stall.
+faulthandler_timeout = 120

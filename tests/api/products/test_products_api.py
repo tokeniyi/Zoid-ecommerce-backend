@@ -86,8 +86,8 @@ async def test_list_products_includes_seeded(client: TestClient) -> None:
             break
         page += 1
 
-    assert body["total"] >= 1
-    assert product.slug in slugs
+    assert body["total"] == 1
+    assert slugs == {product.slug}
 
 
 async def test_get_product_by_slug(client: TestClient) -> None:

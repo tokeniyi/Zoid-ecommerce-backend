@@ -6,7 +6,7 @@ mappers so reading a product never triggers lazy IO on the async session.
 
 from __future__ import annotations
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domains.products.domain.entities import (
@@ -125,15 +125,22 @@ class SqlProductRepository(AbstractProductRepository):
         return self._to_domain(row)
 
     async def reserve_stock(self, variant_id: int, quantity: int) -> bool:
-        variant = await self._session.get(ProductVariantRow, variant_id)
-        if variant is None or variant.inventory is None:
-            return False
-        inventory = variant.inventory
-        if inventory.quantity - inventory.reserved < quantity:
-            return False
-        inventory.reserved += quantity
-        await self._session.flush()
-        return True
+        # One conditional UPDATE: PostgreSQL checks availability and increments
+        # under the row lock, so concurrent checkouts can neither both take the
+        # last unit nor overwrite each other's reservation. A read-check-write
+        # in Python could do both. "fetch" refreshes any InventoryRow this
+        # session has already loaded.
+        stmt = (
+            update(InventoryRow)
+            .where(
+                InventoryRow.variant_id == variant_id,
+                InventoryRow.quantity - InventoryRow.reserved >= quantity,
+            )
+            .values(reserved=InventoryRow.reserved + quantity)
+            .returning(InventoryRow.id)
+            .execution_options(synchronize_session="fetch")
+        )
+        return (await self._session.execute(stmt)).scalar_one_or_none() is not None
 
     async def _get_or_create_category(self, category: Category) -> CategoryRow:
         row = (

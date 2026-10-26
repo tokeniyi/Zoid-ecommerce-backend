@@ -37,18 +37,17 @@ from collections.abc import Iterator
 
 import pytest
 from alembic import command
-from alembic.config import Config
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from tests.support.database import (
     ALLOW_REMOTE_ENV,
-    ROOT,
     SEEDED_TABLES,
     TEST_DATABASE_ENV,
     UNCONFIGURED_DATABASE_URL,
     UnsafeTestDatabaseError,
+    alembic_config,
     configured_test_database_url,
     redact,
     validate_test_database_url,
@@ -119,11 +118,7 @@ def _truncate_statement() -> str:
 
 
 def _migrate_to_head() -> None:
-    # No ini file: alembic.ini's logging section would reconfigure (and
-    # silence) the loggers pytest has already set up.
-    alembic_config = Config()
-    alembic_config.set_main_option("script_location", str(ROOT / "migrations"))
-    command.upgrade(alembic_config, "head")
+    command.upgrade(alembic_config(), "head")
 
 
 @pytest.fixture(scope="session")

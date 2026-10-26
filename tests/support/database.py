@@ -24,6 +24,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from urllib.parse import urlsplit
 
+from alembic.config import Config
 from dotenv import dotenv_values
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -92,3 +93,14 @@ def redact(url: str) -> str:
     port = f":{parts.port}" if parts.port else ""
     credentials = "<REDACTED>@" if parts.username or parts.password else ""
     return f"{parts.scheme}://{credentials}{host}{port}{parts.path}"
+
+
+def alembic_config() -> Config:
+    """The project's migration chain, without alembic.ini's logging setup.
+
+    alembic.ini's ``fileConfig`` would reconfigure (and silence) the loggers
+    pytest has already set up, so only the script location is taken over.
+    """
+    config = Config()
+    config.set_main_option("script_location", str(ROOT / "migrations"))
+    return config

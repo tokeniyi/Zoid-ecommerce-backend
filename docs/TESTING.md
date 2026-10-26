@@ -99,11 +99,21 @@ incomplete.** An interrupted run is neither a pass nor a fail, and neither is
 any subset of it. Note the last test shown and the time limit used. Then rerun
 that test alone with `-vv --durations=0`.
 
+## Migration checks
+
+`tests/integration/database/test_migrations.py` runs against the schema built
+by the migrations alone. It fails when:
+
+- the models and migrations disagree (the same comparison `alembic revision
+  --autogenerate` makes). Add the missing migration;
+- the chain has more than one head. Add a merge revision;
+- the seeded RBAC roles are missing;
+- any `downgrade()` fails to undo its `upgrade()`. The test downgrades to base
+  and re-applies the whole chain.
+
 ## Not covered yet
 
 - **Rate limiting** is not attached to production routes yet. The routes and
   limits have been decided (login and register at 5/min, payment initiate and
   verify at 60/min). Until they are implemented, the only rate-limit tests
   exercise the limiter on a throwaway app.
-- **Migration-chain checks** (schema drift and downgrade round-trip) are
-  planned separately.

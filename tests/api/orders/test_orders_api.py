@@ -180,3 +180,46 @@ async def test_checkout_details_are_validated(client: TestClient) -> None:
     assert _checkout(client, session, address_line="").status_code == 422
     # The failed attempts left no order behind; a valid one still succeeds.
     assert _checkout(client, session).status_code == 201
+
+
+async def _reserved(slug: str) -> int:
+    """Units promised to orders, read from the database itself."""
+    engine = create_engine_from_url()
+    try:
+        async with SqlAlchemyUnitOfWork(build_sessionmaker(engine)) as uow:
+            product = await uow.products.get_by_slug(slug)
+            assert product is not None
+            return product.variants[0].inventory.reserved
+    finally:
+        await engine.dispose()
+
+
+async def test_a_failed_line_releases_what_earlier_lines_reserved(client: TestClient) -> None:
+    """Checkout is all or nothing: the first line's reservation does not survive
+    the second line running out of stock."""
+    plenty = await _seed_product(stock=5)
+    scarce = await _seed_product(stock=1)
+    session = _register_and_login(client)
+    assert _add_to_cart(client, session, plenty, quantity=2).status_code == 200
+    assert _add_to_cart(client, session, scarce, quantity=2).status_code == 200
+
+    response = _checkout(client, session)
+
+    assert response.status_code == 409, response.text
+    assert "Insufficient stock" in response.json()["detail"]
+    assert await _reserved(plenty) == 0
+    assert await _reserved(scarce) == 0
+    assert client.get(f"{API}/orders", cookies={COOKIE: session}).json() == []
+    assert client.get(f"{API}/cart", cookies={COOKIE: session}).json()["count"] == 4
+
+
+async def test_a_successful_checkout_reserves_exactly_what_was_ordered(
+    client: TestClient,
+) -> None:
+    slug = await _seed_product(stock=5)
+    session = _register_and_login(client)
+    assert _add_to_cart(client, session, slug, quantity=3).status_code == 200
+
+    assert _checkout(client, session).status_code == 201
+
+    assert await _reserved(slug) == 3

@@ -614,6 +614,7 @@ async def test_an_admin_reads_every_customers_orders_not_just_their_own(
     seeded = await _seed_product()
     first, first_id = _signup(client)
     second, _ = _signup(client)
+    placed: set[int] = set()
     for who in (first, second):
         assert (
             client.post(
@@ -622,9 +623,9 @@ async def test_an_admin_reads_every_customers_orders_not_just_their_own(
                 json={"product_slug": seeded.slug, "size": "M", "quantity": 1},
             )
         ).status_code == 200
-        assert (
-            client.post(f"{API}/orders", cookies={COOKIE: who}, json=CHECKOUT).status_code == 201
-        )
+        order = client.post(f"{API}/orders", cookies={COOKIE: who}, json=CHECKOUT)
+        assert order.status_code == 201, order.text
+        placed.add(order.json()["id"])
 
     listed = client.get(
         f"{API}/admin/orders", cookies={COOKIE: _mint("admin", first_id)}, params={"page_size": 100}
@@ -634,7 +635,10 @@ async def test_an_admin_reads_every_customers_orders_not_just_their_own(
     assert [order["id"] for order in listed["items"]] == sorted(
         (order["id"] for order in listed["items"]), reverse=True
     )
-    assert listed["total"] >= 2
+    # The database holds exactly these two customers' orders.
+    assert listed["total"] == 2
+    assert len(listed["items"]) == 2
+    assert {order["id"] for order in listed["items"]} == placed
     assert listed["page"] == 1 and listed["page_size"] == 100
 
 
@@ -654,13 +658,18 @@ async def test_the_order_book_is_paged(client: TestClient) -> None:
             == 201
         )
 
-    page = client.get(
-        f"{API}/admin/orders", cookies={COOKIE: _mint("admin", user_id)}, params={"page_size": 1}
-    ).json()
+    admin = _mint("admin", user_id)
+    first, second = (
+        client.get(
+            f"{API}/admin/orders", cookies={COOKIE: admin}, params={"page": n, "page_size": 1}
+        ).json()
+        for n in (1, 2)
+    )
 
-    assert len(page["items"]) == 1
-    assert page["total_pages"] >= 2
-    assert page["total"] >= 2
+    assert len(first["items"]) == len(second["items"]) == 1
+    assert first["total"] == 2 and first["total_pages"] == 2
+    # Two pages, two different orders: paging neither repeats nor skips.
+    assert first["items"][0]["id"] != second["items"][0]["id"]
 
 
 async def test_an_admin_reads_the_customer_list(client: TestClient) -> None:
@@ -700,12 +709,12 @@ async def test_the_customer_list_is_paged_and_covers_everyone(client: TestClient
             cookies={COOKIE: admin},
             params={"page": page_number, "page_size": 1},
         ).json()
-        assert len(page["items"]) <= 1
+        assert len(page["items"]) == 1
         seen.update(user["id"] for user in page["items"])
-        assert page["total"] >= 2
+        assert page["total"] == 2
 
-    assert page["total_pages"] >= 2
-    assert seen.isdisjoint({first_id, second_id}) or seen
+    assert page["total_pages"] == 2
+    assert seen == {first_id, second_id}
 
 
 async def test_a_page_that_does_not_exist_is_empty_not_an_error(client: TestClient) -> None:
@@ -743,21 +752,24 @@ async def test_the_dashboard_reports_the_store_the_admin_can_act_on(
 
     before = client.get(f"{API}/admin/dashboard", cookies={COOKIE: admin}).json()
 
-    assert before["catalog"]["products"] >= 2
+    assert before["catalog"]["products"] == 2
     # One sold out, one thin: two products to restock, and neither is "plenty".
-    assert before["needs_restocking"] >= 2
-    assert before["catalog"]["out_of_stock"] >= 1
-    assert before["catalog"]["low_stock"] >= 1
-    assert before["catalog"]["bestsellers"] >= 2
-    assert before["orders"]["total"] >= 1
-    assert before["orders"]["awaiting_payment"] >= 1
-    assert before["orders"]["paid"] == 0 or before["orders"]["paid"] >= 0
-    assert before["customers"]["total"] >= 1
+    assert before["needs_restocking"] == 2
+    assert before["catalog"]["out_of_stock"] == 1
+    assert before["catalog"]["low_stock"] == 1
+    assert before["catalog"]["bestsellers"] == 2
+    # 2 made of the thin one, 1 promised to the order: 1 unit on the shelf.
+    assert before["catalog"]["units_available"] == 1
+    assert before["orders"]["total"] == 1
+    assert before["orders"]["awaiting_payment"] == 1
+    assert before["orders"]["paid"] == 0
+    assert before["customers"]["total"] == 1
 
     await _mark_paid(order_id)
     after = client.get(f"{API}/admin/dashboard", cookies={COOKIE: admin}).json()
 
-    assert after["orders"]["paid"] == before["orders"]["paid"] + 1
+    assert after["orders"]["paid"] == 1
+    assert after["orders"]["awaiting_payment"] == 0
     assert after["orders"]["total"] == before["orders"]["total"]
     assert after["catalog"]["products"] == before["catalog"]["products"]
 
@@ -770,7 +782,7 @@ async def test_the_dashboard_reports_the_store_the_admin_can_act_on(
     )
     landed = client.get(f"{API}/admin/dashboard", cookies={COOKIE: admin}).json()
     assert landed["catalog"]["out_of_stock"] == before["catalog"]["out_of_stock"] - 1
-    assert landed["catalog"]["units_available"] >= before["catalog"]["units_available"] + 9
+    assert landed["catalog"]["units_available"] == before["catalog"]["units_available"] + 9
 
 
 async def test_the_dashboard_counts_stock_that_can_actually_be_sold(
@@ -795,5 +807,7 @@ async def test_the_dashboard_counts_stock_that_can_actually_be_sold(
 
     # 6 made, 4 reserved → 2 left: still low, still only worth 2 x 1000 of it.
     assert _shelf(client, product["slug"]) == {"M": 2}
-    assert stats["low_stock"] >= 1
-    assert Decimal(stats["inventory_value"]) >= Decimal("2000.00")
+    assert stats["low_stock"] == 1
+    assert stats["units_available"] == 2
+    # Counting the 4 reserved units would make this 6000.00.
+    assert stats["inventory_value"] == "2000.00"

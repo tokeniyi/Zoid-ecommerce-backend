@@ -7,6 +7,7 @@ concern here — the guards are).
 
 from __future__ import annotations
 
+import pytest
 from fastapi import Depends, FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.testclient import TestClient
@@ -14,8 +15,10 @@ from fastapi.testclient import TestClient
 from app.config import get_settings
 from app.security.authentication.session import session_strategy_from_settings
 from app.security.authorization import (
+    AbstractRoleSource,
     Permission,
     Principal,
+    get_role_source,
     require_admin,
     require_authenticated_user,
     require_permission,
@@ -28,10 +31,25 @@ from app.shared.exceptions import AppError, status_for
 _strategy = session_strategy_from_settings()
 CUSTOMER_TOKEN = _strategy.issue("7", role="customer")[0]
 ADMIN_TOKEN = _strategy.issue("1", role="admin")[0]
+#: User 2's token was issued while they were an admin; the store has since
+#: demoted them. User 3's token is for someone who no longer exists.
+DEMOTED_TOKEN = _strategy.issue("2", role="admin")[0]
+DELETED_TOKEN = _strategy.issue("3", role="admin")[0]
 
 
-def _build_app() -> FastAPI:
+class _StoredRoles(AbstractRoleSource):
+    """The roles the store holds now, standing in for the users table."""
+
+    roles = {1: "admin", 2: "customer", 7: "customer"}
+
+    async def current_role(self, user_id: int) -> str | None:
+        return self.roles.get(user_id)
+
+
+def _build_app(*, wire_roles: bool = True) -> FastAPI:
     app = FastAPI()
+    if wire_roles:
+        app.dependency_overrides[get_role_source] = _StoredRoles
 
     @app.exception_handler(AppError)
     async def _handle_app_error(_: Request, exc: AppError) -> JSONResponse:
@@ -64,8 +82,8 @@ def _build_app() -> FastAPI:
     return app
 
 
-def _client(token: str | None = None) -> TestClient:
-    client = TestClient(_build_app())
+def _client(token: str | None = None, *, wire_roles: bool = True) -> TestClient:
+    client = TestClient(_build_app(wire_roles=wire_roles))
     if token is not None:
         client.cookies.set(get_settings().cookie_name, token)
     return client
@@ -102,6 +120,28 @@ def test_authorized_admin_can_access_admin_route() -> None:
 def test_permission_guard_blocks_customer_and_allows_admin() -> None:
     assert _client(token=CUSTOMER_TOKEN).get("/needs-products").status_code == 403
     assert _client(token=ADMIN_TOKEN).get("/needs-products").status_code == 200
+
+
+def test_admin_guard_uses_the_stored_role_not_the_token_claim() -> None:
+    assert _client(token=DEMOTED_TOKEN).get("/admin").status_code == 403
+    assert _client(token=DEMOTED_TOKEN).get("/needs-products").status_code == 403
+
+
+def test_admin_guard_refuses_a_user_who_no_longer_exists() -> None:
+    assert _client(token=DELETED_TOKEN).get("/admin").status_code == 401
+    assert _client(token=DELETED_TOKEN).get("/needs-products").status_code == 401
+
+
+def test_customer_routes_need_only_a_verified_session() -> None:
+    """The stored-role lookup is for privileged guards; it is not consulted here."""
+    response = _client(token=CUSTOMER_TOKEN, wire_roles=False).get("/protected")
+    assert response.status_code == 200
+
+
+def test_privileged_guards_fail_closed_when_no_role_source_is_wired() -> None:
+    """Without a role source the guard errors; it never falls back to the claim."""
+    with pytest.raises(RuntimeError, match="No role source is wired"):
+        _client(token=ADMIN_TOKEN, wire_roles=False).get("/admin")
 
 
 def test_rate_limit_enforces_boundary_without_timing() -> None:

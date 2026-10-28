@@ -16,10 +16,12 @@ from fastapi.responses import JSONResponse
 
 from app.api.router import api_router
 from app.config import get_settings
+from app.infrastructure.container import get_user_role_source
 from app.infrastructure.persistence.sqlalchemy.session import (
     dispose_engine,
     get_sessionmaker,
 )
+from app.security.authorization import get_role_source
 from app.security.protection import configure_protection
 from app.shared.exceptions import AppError, status_for
 
@@ -57,6 +59,8 @@ def create_app() -> FastAPI:
         """Translate framework-free domain errors into HTTP responses."""
         return JSONResponse(status_code=status_for(exc), content={"detail": exc.message})
 
+    # Privileged guards read the caller's current role from the users table.
+    app.dependency_overrides[get_role_source] = get_user_role_source
     configure_protection(app)
     app.include_router(api_router, prefix=settings.api_v1_prefix)
     return app

@@ -42,6 +42,16 @@ the hasher compares rather than decrypts.
   - `require_authenticated_user` — any valid session, else **401**.
   - `require_permission(P)` / `require_admin` — permitted role, else **403**
     (authentication composes underneath, so no session is still 401).
+- **Privileged guards read the role from the database on every request.**
+  `require_admin`, `require_roles` and `require_permission` ignore the token's
+  `role` claim and ask the `AbstractRoleSource` (bound in `create_app()` to the
+  users table, in the request's own Unit of Work) for the role the user holds
+  now. A demoted admin gets **403** on their next request, and a token whose
+  user was deleted gets **401**, even though the token stays valid for
+  `SESSION_TTL_MINUTES` (7 days by default). If no role source is wired, the
+  guard errors rather than fall back to the claim.
+  `require_authenticated_user` (customer self-service routes) needs only a
+  verified session and does not query the database.
 - The admin surface is protected at the **router level**
   (`dependencies=[Depends(require_admin)]`), so a route added later is guarded
   by default rather than only if someone remembers to guard it.

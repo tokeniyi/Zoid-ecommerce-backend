@@ -20,6 +20,7 @@ from app.domains.payments.application.notifications import PaidOrderNotifier
 from app.domains.payments.application.service import PaymentService
 from app.domains.products.application.service import ProductService
 from app.domains.users.application.service import UserService
+from app.domains.users.domain.repositories import AbstractUserRepository
 from app.domains.wishlist.application.service import WishlistService
 from app.infrastructure.persistence.sqlalchemy.session import get_sessionmaker
 from app.infrastructure.persistence.sqlalchemy.unit_of_work import (
@@ -39,6 +40,7 @@ from app.security.authentication.dependencies import (
 )
 from app.security.authentication.service import SessionService
 from app.security.authentication.session import AbstractSessionStrategy
+from app.security.authorization import AbstractRoleSource
 from app.security.password import PasswordHasher, get_password_hasher
 
 
@@ -175,3 +177,25 @@ async def get_admin_service(
     service already gets, so an admin edit runs through the same rules.
     """
     return AdminService(products=uow.products, orders=uow.orders, users=uow.users)
+
+
+class UserTableRoleSource(AbstractRoleSource):
+    """The role a user holds now, read from the users table."""
+
+    def __init__(self, users: AbstractUserRepository) -> None:
+        self._users = users
+
+    async def current_role(self, user_id: int) -> str | None:
+        user = await self._users.get_by_id(user_id)
+        return user.role if user is not None else None
+
+
+async def get_user_role_source(
+    uow: AbstractUnitOfWork = Depends(get_unit_of_work),
+) -> AbstractRoleSource:
+    """Bound to `get_role_source` by ``create_app``.
+
+    It shares the request's Unit of Work (FastAPI caches ``get_unit_of_work`` per
+    request), so the role check and the endpoint read one transaction.
+    """
+    return UserTableRoleSource(uow.users)

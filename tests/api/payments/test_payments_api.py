@@ -63,8 +63,8 @@ from app.integrations.email.sender import (
 )
 from app.integrations.payments import build_payment_gateway, build_webhook_adapter
 from app.integrations.payments.paystack import PaystackPaymentGateway
-from app.security.authentication.session import session_strategy_from_settings
 from app.shared.exceptions import ProviderNotConfiguredError
+from tests.support.accounts import register_admin, set_role
 from tests.unit.payments.test_order_notification import RecordingSender
 
 pytestmark = pytest.mark.database
@@ -216,10 +216,6 @@ def _initiate(client: TestClient, session: str, order_id: int):
     )
 
 
-def _admin_token(user_id: int) -> str:
-    """A session token carrying the admin role, minted with the real strategy."""
-    return session_strategy_from_settings().issue(str(user_id), role="admin")[0]
-
 
 async def test_payment_endpoints_reject_anonymous_callers(client: TestClient) -> None:
     assert client.post(f"{API}/payments/initiate", json={"order_id": 1}).status_code == 401
@@ -241,6 +237,23 @@ async def test_customers_cannot_refund(
     )
 
     assert response.status_code == 403, response.text
+
+
+async def test_a_demoted_admin_cannot_refund(
+    client: TestClient, gateway: ScriptedGateway
+) -> None:
+    """Refunds are checked against the role in the database, not the token's claim."""
+    admin, user_id = await register_admin(client)
+    await set_role(user_id, "customer")
+
+    response = client.post(
+        f"{API}/payments/refunds",
+        cookies={COOKIE: admin},
+        json={"reference": "PAY-whatever"},
+    )
+
+    assert response.status_code == 403, response.text
+    assert gateway.refunds == []
 
 
 async def test_a_provider_without_credentials_refuses_to_charge_anything(
@@ -309,9 +322,10 @@ async def test_initiate_verify_and_refund_flow(
     assert verified.json()["status"] == "paid"
     assert verified.json()["next_action"] is None
 
+    admin, _ = await register_admin(client)
     refunded = client.post(
         f"{API}/payments/refunds",
-        cookies={COOKIE: _admin_token(user_id)},
+        cookies={COOKIE: admin},
         json={"reference": body["payment_id"], "reason": "Returned jersey"},
     )
     assert refunded.status_code == 200, refunded.text

@@ -37,6 +37,7 @@ from app.infrastructure.persistence.sqlalchemy.session import (
 from app.infrastructure.persistence.sqlalchemy.unit_of_work import SqlAlchemyUnitOfWork
 from app.main import app
 from app.security.authentication.session import session_strategy_from_settings
+from tests.support.accounts import delete_user, login, register_admin, set_role, signup
 
 pytestmark = pytest.mark.database
 
@@ -86,8 +87,12 @@ def _body_for(method: str) -> dict[str, Any] | None:
     return None
 
 
-def _mint(role: str, user_id: int = 1) -> str:
-    """A session token carrying ``role``, minted with the real strategy."""
+def _mint(role: str, user_id: int) -> str:
+    """A validly signed token for ``user_id`` claiming ``role``.
+
+    Only for tests about the claim itself: admin access is decided by the role
+    stored in the database, so real admins come from ``register_admin``.
+    """
     return session_strategy_from_settings().issue(str(user_id), role=role)[0]
 
 
@@ -259,8 +264,9 @@ async def test_a_customers_own_session_does_not_become_admin_by_being_real(
     client: TestClient,
 ) -> None:
     """The most tempting write is still shut, and it changes nothing."""
-    session, user_id = _signup(client)
-    product = _create(client, _mint("admin", user_id), sizes=[{"size": "M", "quantity": 0}])
+    session, _ = _signup(client)
+    admin, _ = await register_admin(client)
+    product = _create(client, admin, sizes=[{"size": "M", "quantity": 0}])
 
     refused = client.post(
         f"{API}/admin/products/{product['id']}/stock",
@@ -272,42 +278,88 @@ async def test_a_customers_own_session_does_not_become_admin_by_being_real(
     assert _shelf(client, product["slug"]) == {"M": 0}
 
 
-async def test_the_same_person_is_an_admin_only_when_the_session_says_so(
+async def test_the_same_person_is_an_admin_only_when_the_store_says_so(
     client: TestClient,
 ) -> None:
-    """Two tokens, one user id: the role carried by the session is the whole difference."""
-    _, user_id = _signup(client)
+    """One user, one session: the role stored for them is the whole difference.
+
+    The session is the one login issued while they were a customer; promoting
+    the row opens the admin API on the next request, without logging in again.
+    """
+    email, user_id = signup(client)
+    session = login(client, email)
 
     # Start from an empty cookie jar so the first request is genuinely anonymous:
-    # the session cookie minted during signup must not be sent with it.
+    # the session cookie set during login must not be sent with it.
     client.cookies.clear()
     assert client.get(f"{API}/admin/dashboard").status_code == 401
-    customer_token = _mint("customer", user_id)
-    client.cookies.clear()
-    assert (
-        client.get(f"{API}/admin/dashboard", cookies={COOKIE: customer_token}).status_code
-        == 403
-    )
-    admin_token = _mint("admin", user_id)
-    client.cookies.clear()
-    assert (
-        client.get(f"{API}/admin/dashboard", cookies={COOKIE: admin_token}).status_code
-        == 200
-    )
+    assert client.get(f"{API}/admin/dashboard", cookies={COOKIE: session}).status_code == 403
+
+    await set_role(user_id, "admin")
+
+    assert client.get(f"{API}/admin/dashboard", cookies={COOKIE: session}).status_code == 200
 
 
-async def test_a_role_that_is_not_admin_is_not_admin(client: TestClient) -> None:
+async def test_a_role_claim_that_is_not_admin_is_not_admin(client: TestClient) -> None:
     """Nothing shorter or looser than the admin role opens the door."""
+    _, user_id = signup(client)
     for role in ("staff", "SUPERADMIN", "admin ", ""):
-        response = client.get(f"{API}/admin/users", cookies={COOKIE: _mint(role)})
+        response = client.get(f"{API}/admin/users", cookies={COOKIE: _mint(role, user_id)})
         assert response.status_code == 403, f"{role!r}: {response.text}"
+
+
+async def test_a_demoted_admin_is_refused_at_once(client: TestClient) -> None:
+    """The role is read from the database on every request, not from the token.
+
+    The admin's session was issued while they were an admin and is still valid
+    for days; demoting the row must close every admin route on the next request.
+    """
+    admin, user_id = await register_admin(client)
+    assert client.get(f"{API}/admin/dashboard", cookies={COOKIE: admin}).status_code == 200
+
+    await set_role(user_id, "customer")
+
+    for method, path in ADMIN_OPERATIONS:
+        response = client.request(
+            method, _concrete(path), cookies={COOKIE: admin}, json=_body_for(method)
+        )
+        assert response.status_code == 403, f"{method} {path}: {response.text}"
+
+
+async def test_a_deleted_admin_is_refused_at_once(client: TestClient) -> None:
+    """A valid token for a user who no longer exists authenticates no one."""
+    admin, user_id = await register_admin(client)
+    assert client.get(f"{API}/admin/dashboard", cookies={COOKIE: admin}).status_code == 200
+
+    await delete_user(user_id)
+
+    for method, path in ADMIN_OPERATIONS:
+        response = client.request(
+            method, _concrete(path), cookies={COOKIE: admin}, json=_body_for(method)
+        )
+        assert response.status_code == 401, f"{method} {path}: {response.text}"
+
+
+async def test_an_admin_claim_in_a_customers_token_opens_nothing(client: TestClient) -> None:
+    """A validly signed token that says ``admin`` is not enough on its own.
+
+    This is the stale-token case seen from the other side: the claim and the
+    database disagree, and the database wins.
+    """
+    _, user_id = signup(client)
+    claims_admin = _mint("admin", user_id)
+    for method, path in ADMIN_OPERATIONS:
+        response = client.request(
+            method, _concrete(path), cookies={COOKIE: claims_admin}, json=_body_for(method)
+        )
+        assert response.status_code == 403, f"{method} {path}: {response.text}"
 
 
 # ── Products (§34) ───────────────────────────────────────────────────
 
 
 async def test_an_admin_adds_a_product_the_storefront_then_sells(client: TestClient) -> None:
-    admin = _mint("admin")
+    admin, _ = await register_admin(client)
     payload = _new_product()
 
     created = client.post(f"{API}/admin/products", cookies={COOKIE: admin}, json=payload)
@@ -326,7 +378,7 @@ async def test_an_admin_adds_a_product_the_storefront_then_sells(client: TestCli
 
 
 async def test_two_products_cannot_share_one_catalog_name(client: TestClient) -> None:
-    admin = _mint("admin")
+    admin, _ = await register_admin(client)
     payload = _new_product()
     created = client.post(f"{API}/admin/products", cookies={COOKIE: admin}, json=payload)
     assert created.status_code == 201, created.text
@@ -344,7 +396,7 @@ async def test_a_new_product_is_checked_as_a_product_before_it_is_a_request(
     client: TestClient,
 ) -> None:
     """Sizes that are not sizes and a product with no name never reach the shelf."""
-    admin = _mint("admin")
+    admin, _ = await register_admin(client)
 
     assert (
         client.post(
@@ -373,7 +425,7 @@ async def test_a_new_product_is_checked_as_a_product_before_it_is_a_request(
 
 
 async def test_an_admin_edits_a_product_without_losing_the_rest(client: TestClient) -> None:
-    admin = _mint("admin")
+    admin, _ = await register_admin(client)
     product = _create(client, admin)
 
     edited = client.patch(
@@ -397,7 +449,7 @@ async def test_an_admin_edits_a_product_without_losing_the_rest(client: TestClie
 
 async def test_an_empty_edit_changes_nothing_and_breaks_nothing(client: TestClient) -> None:
     """A PATCH that names no field is not a way to wipe a product."""
-    admin = _mint("admin")
+    admin, _ = await register_admin(client)
     product = _create(client, admin)
 
     edited = client.patch(
@@ -409,7 +461,7 @@ async def test_an_empty_edit_changes_nothing_and_breaks_nothing(client: TestClie
 
 
 async def test_a_price_the_catalog_would_not_accept_is_not_a_price(client: TestClient) -> None:
-    admin = _mint("admin")
+    admin, _ = await register_admin(client)
     product = _create(client, admin)
 
     refused = client.patch(
@@ -425,7 +477,7 @@ async def test_a_price_the_catalog_would_not_accept_is_not_a_price(client: TestC
 async def test_hiding_a_product_takes_it_off_the_shelf_not_off_the_record(
     client: TestClient,
 ) -> None:
-    admin = _mint("admin")
+    admin, _ = await register_admin(client)
     product = _create(client, admin)
 
     hidden = client.patch(
@@ -447,7 +499,7 @@ async def test_hiding_a_product_takes_it_off_the_shelf_not_off_the_record(
 
 
 async def test_an_admin_edits_a_product_that_is_not_there(client: TestClient) -> None:
-    admin = _mint("admin")
+    admin, _ = await register_admin(client)
 
     missing = client.patch(
         f"{API}/admin/products/99999999", cookies={COOKIE: admin}, json={"name": "Ghost"}
@@ -460,7 +512,7 @@ async def test_an_admin_edits_a_product_that_is_not_there(client: TestClient) ->
 
 
 async def test_an_admin_puts_stock_back_where_it_sold_out(client: TestClient) -> None:
-    admin = _mint("admin")
+    admin, _ = await register_admin(client)
     product = _create(client, admin, sizes=[{"size": "M", "quantity": 0}])
     assert product["stock"] == {"M": 0}
 
@@ -482,7 +534,7 @@ async def test_an_admin_puts_stock_back_where_it_sold_out(client: TestClient) ->
 
 
 async def test_restocking_accumulates_rather_than_replaces(client: TestClient) -> None:
-    admin = _mint("admin")
+    admin, _ = await register_admin(client)
     product = _create(client, admin, sizes=[{"size": "M", "quantity": 3}])
 
     first = client.post(
@@ -503,7 +555,7 @@ async def test_restocking_accumulates_rather_than_replaces(client: TestClient) -
 
 async def test_what_is_already_promised_stays_promised(client: TestClient) -> None:
     """A restock adds to what was made; a reservation is not stock to sell."""
-    admin = _mint("admin")
+    admin, _ = await register_admin(client)
     seeded = await _seed_product(stock=1)
     session, _ = _signup(client)
     assert (
@@ -531,7 +583,7 @@ async def test_what_is_already_promised_stays_promised(client: TestClient) -> No
 
 
 async def test_stock_cannot_be_sent_to_a_size_that_is_not_offered(client: TestClient) -> None:
-    admin = _mint("admin")
+    admin, _ = await register_admin(client)
     product = _create(client, admin)
 
     missing = client.post(
@@ -546,7 +598,7 @@ async def test_stock_cannot_be_sent_to_a_size_that_is_not_offered(client: TestCl
 
 async def test_the_shop_is_not_restocked_with_nothing(client: TestClient) -> None:
     """Zero and negative units are refused at the door, before the shelf is read."""
-    admin = _mint("admin")
+    admin, _ = await register_admin(client)
     product = _create(client, admin)
 
     for quantity in (0, -5, None):
@@ -579,7 +631,7 @@ async def test_the_admin_sees_the_order_book_as_the_store_keeps_it(
     placed = client.post(f"{API}/orders", cookies={COOKIE: session}, json=CHECKOUT)
     assert placed.status_code == 201, placed.text
     order = placed.json()
-    admin = _mint("admin", user_id)
+    admin, _ = await register_admin(client)
 
     def find() -> dict[str, Any]:
         listed = client.get(
@@ -626,8 +678,9 @@ async def test_an_admin_reads_every_customers_orders_not_just_their_own(
             client.post(f"{API}/orders", cookies={COOKIE: who}, json=CHECKOUT).status_code == 201
         )
 
+    admin, _ = await register_admin(client)
     listed = client.get(
-        f"{API}/admin/orders", cookies={COOKIE: _mint("admin", first_id)}, params={"page_size": 100}
+        f"{API}/admin/orders", cookies={COOKIE: admin}, params={"page_size": 100}
     ).json()
 
     assert len(client.get(f"{API}/orders", cookies={COOKIE: first}).json()) == 1
@@ -654,8 +707,9 @@ async def test_the_order_book_is_paged(client: TestClient) -> None:
             == 201
         )
 
+    admin, _ = await register_admin(client)
     page = client.get(
-        f"{API}/admin/orders", cookies={COOKIE: _mint("admin", user_id)}, params={"page_size": 1}
+        f"{API}/admin/orders", cookies={COOKIE: admin}, params={"page_size": 1}
     ).json()
 
     assert len(page["items"]) == 1
@@ -675,9 +729,10 @@ async def test_an_admin_reads_the_customer_list(client: TestClient) -> None:
     ).status_code == 200
     assert client.post(f"{API}/orders", cookies={COOKIE: session}, json=CHECKOUT).status_code == 201
 
+    admin, _ = await register_admin(client)
     row = next(
         user
-        for user in _all_customers(client, _mint("admin", customer_id))
+        for user in _all_customers(client, admin)
         if user["id"] == customer_id
     )
     assert row["role"] == "customer"
@@ -691,7 +746,7 @@ async def test_an_admin_reads_the_customer_list(client: TestClient) -> None:
 async def test_the_customer_list_is_paged_and_covers_everyone(client: TestClient) -> None:
     _, first_id = _signup(client)
     _, second_id = _signup(client)
-    admin = _mint("admin", first_id)
+    admin, _ = await register_admin(client)
 
     seen: set[int] = set()
     for page_number in (1, 2):
@@ -709,9 +764,10 @@ async def test_the_customer_list_is_paged_and_covers_everyone(client: TestClient
 
 
 async def test_a_page_that_does_not_exist_is_empty_not_an_error(client: TestClient) -> None:
+    admin, _ = await register_admin(client)
     listed = client.get(
         f"{API}/admin/orders",
-        cookies={COOKIE: _mint("admin")},
+        cookies={COOKIE: admin},
         params={"page": 99999, "page_size": 20},
     ).json()
 
@@ -726,7 +782,7 @@ async def test_the_dashboard_reports_the_store_the_admin_can_act_on(
     client: TestClient,
 ) -> None:
     """Every number on it is a count of rows this test just made real."""
-    admin = _mint("admin")
+    admin, _ = await register_admin(client)
     sold_out = _create(client, admin, sizes=[{"size": "M", "quantity": 0}])
     thin = _create(client, admin, sizes=[{"size": "M", "quantity": 2}], price="30000.00")
     session, _ = _signup(client)
@@ -777,7 +833,7 @@ async def test_the_dashboard_counts_stock_that_can_actually_be_sold(
     client: TestClient,
 ) -> None:
     """Reserved units are not on the shelf, so the shelf value ignores them."""
-    admin = _mint("admin")
+    admin, _ = await register_admin(client)
     product = _create(client, admin, sizes=[{"size": "M", "quantity": 6}], price="1000.00")
     session, _ = _signup(client)
     assert (

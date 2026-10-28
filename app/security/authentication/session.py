@@ -29,10 +29,9 @@ _DEV_FALLBACK_SECRET = "dev-insecure-secret-change-me-in-production-please"
 class SessionClaims:
     """A verified session: the subject (user id), its role and its lifetime.
 
-    The role is carried as a session claim so the backend can enforce
-    authorization at the edge from a verified token, independently of the
-    frontend. (Re-validating the role against the database is a later
-    hardening concern.)
+    The role is carried as a session claim, recording the role at login.
+    Privileged guards do not trust it: they re-read the current role from the
+    database on every request (see `app.security.authorization.role_source`).
     """
 
     subject: str

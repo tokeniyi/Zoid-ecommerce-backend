@@ -113,6 +113,9 @@ No endpoint here names a provider — the response is the normalized contract. S
 The whole `/admin` surface is guarded at the **router level** by `require_admin`
 so a route added later is protected by default. A non-admin calling these
 directly — bypassing any frontend — gets 401 (no session) or 403 (wrong role).
+The role is read from the database on every request, not from the session
+token, so a demoted admin is refused at once (403) and a deleted user's session
+no longer authenticates (401).
 
 | Method | Path | Auth | Notes |
 | --- | --- | --- | --- |

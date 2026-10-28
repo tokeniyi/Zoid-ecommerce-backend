@@ -6,6 +6,7 @@ to do this?". Routers compose these guards instead of re-implementing checks.
 
 from app.security.authorization.dependencies import (
     get_current_principal,
+    get_privileged_principal,
     require_admin,
     require_authenticated_user,
     require_permission,
@@ -16,6 +17,7 @@ from app.security.authorization.permissions import (
     Permission,
     role_has_permission,
 )
+from app.security.authorization.role_source import AbstractRoleSource, get_role_source
 from app.security.authorization.roles import Principal, Role
 
 __all__ = [
@@ -25,6 +27,9 @@ __all__ = [
     "ROLE_PERMISSIONS",
     "role_has_permission",
     "get_current_principal",
+    "get_privileged_principal",
+    "AbstractRoleSource",
+    "get_role_source",
     "require_authenticated_user",
     "require_admin",
     "require_roles",

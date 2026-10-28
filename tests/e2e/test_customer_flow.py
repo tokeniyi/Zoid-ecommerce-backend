@@ -54,7 +54,7 @@ from app.infrastructure.persistence.sqlalchemy.unit_of_work import (
 )
 from app.integrations.payments import build_webhook_adapter
 from app.integrations.payments.paystack import PaystackPaymentGateway
-from app.security.authentication.session import session_strategy_from_settings
+from tests.support.accounts import register_admin
 from tests.unit.payments.test_order_notification import RecordingSender
 
 pytestmark = pytest.mark.database
@@ -127,11 +127,6 @@ def _register_and_login(client: TestClient) -> tuple[str, int]:
     me = client.get(f"{API}/auth/me", cookies={COOKIE: session})
     assert me.status_code == 200, me.text
     return session, int(me.json()["id"])
-
-
-def _admin_token(user_id: int) -> str:
-    """A real admin session, minted with the strategy the app uses."""
-    return session_strategy_from_settings().issue(str(user_id), role="admin")[0]
 
 
 def _paystack_gateway(calls: list[str]) -> PaystackPaymentGateway:
@@ -359,9 +354,10 @@ async def test_the_whole_path_from_guest_cart_to_a_paid_order_the_shop_can_read(
     assert "42,000.00 NGN" in body
 
     # And an admin can read the paid order back out of the order book.
+    admin, _ = await register_admin(client)
     book = client.get(
         f"{API}/admin/orders",
-        cookies={COOKIE: _admin_token(user_id)},
+        cookies={COOKIE: admin},
         params={"page_size": 100},
     )
     assert book.status_code == 200, book.text
@@ -405,9 +401,10 @@ async def test_a_webhook_settles_the_order_once_and_a_redelivery_repeats_nothing
     assert _order_status(client, session, order_id) == "PAID"
     assert len(emails.calls) == 1
 
+    admin, _ = await register_admin(client)
     book = client.get(
         f"{API}/admin/orders",
-        cookies={COOKIE: _admin_token(user_id)},
+        cookies={COOKIE: admin},
         params={"page_size": 100},
     )
     row = next(item for item in book.json()["items"] if item["id"] == order_id)

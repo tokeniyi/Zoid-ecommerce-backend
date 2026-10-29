@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Response, status
 
+from app.config import get_settings
 from app.domains.auth.api.schemas import (
     LoginRequest,
     MessageResponse,
@@ -27,11 +28,22 @@ from app.security.authentication.dependencies import (
     get_session_service,
 )
 from app.security.authentication.service import SessionService
+from app.security.protection import rate_limit
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
+# Credential guessing and account spam are throttled per client address.
+_credential_rate_limit = Depends(
+    rate_limit(limit=lambda: get_settings().login_rate_limit_per_minute)
+)
 
-@router.post("/signup", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+
+@router.post(
+    "/signup",
+    response_model=UserResponse,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[_credential_rate_limit],
+)
 async def signup(
     body: SignUpRequest,
     service: AuthService = Depends(get_auth_service),
@@ -47,7 +59,7 @@ async def signup(
     )
 
 
-@router.post("/login", response_model=UserResponse)
+@router.post("/login", response_model=UserResponse, dependencies=[_credential_rate_limit])
 async def login(
     body: LoginRequest,
     response: Response,

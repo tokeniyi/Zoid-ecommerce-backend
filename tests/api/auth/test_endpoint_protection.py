@@ -104,7 +104,7 @@ def test_permission_guard_blocks_customer_and_allows_admin() -> None:
     assert _client(token=ADMIN_TOKEN).get("/needs-products").status_code == 200
 
 
-def test_rate_limit_enforces_boundary_without_timing() -> None:
+def test_rate_limit_enforces_boundary_without_timing(rate_limits_enabled: None) -> None:
     client = _client()
     assert client.get("/limited").status_code == 200
     assert client.get("/limited").status_code == 200

@@ -73,6 +73,10 @@ def pytest_configure(config: pytest.Config) -> None:
     # Environment variables take precedence over .env in Settings, so this
     # replaces the developer's DATABASE_URL for the application and Alembic.
     os.environ["DATABASE_URL"] = _test_database_url or UNCONFIGURED_DATABASE_URL
+    # Many tests log in from the one TestClient address; a real 5-per-minute
+    # login limit would turn them into 429s. Tests that are about limiting
+    # switch it back on with the `rate_limits_enabled` fixture.
+    os.environ["RATE_LIMIT_ENABLED"] = "false"
 
     from app.config import get_settings
 
@@ -143,6 +147,30 @@ def _database_isolation(request: pytest.FixtureRequest) -> None:
         return
     request.getfixturevalue("migrated_test_database")
     asyncio.run(_execute(_truncate_statement()))
+
+
+@pytest.fixture(autouse=True)
+def _fresh_rate_limits() -> Iterator[None]:
+    """Drop limiter counters and cached settings after every test.
+
+    Autouse fixtures are torn down after ``monkeypatch``, so the settings cache
+    is cleared once the test's environment changes have been undone.
+    """
+    yield
+    from app.config import get_settings
+    from app.security.protection.rate_limiter import use_rate_limiter
+
+    use_rate_limiter(None)
+    get_settings.cache_clear()
+
+
+@pytest.fixture
+def rate_limits_enabled(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Turn rate limiting on for one test (the suite runs with it off)."""
+    from app.config import get_settings
+
+    monkeypatch.setenv("RATE_LIMIT_ENABLED", "true")
+    get_settings.cache_clear()
 
 
 @pytest.fixture

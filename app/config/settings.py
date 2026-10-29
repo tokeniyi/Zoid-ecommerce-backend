@@ -14,6 +14,7 @@ without touching business logic.
 from __future__ import annotations
 
 from functools import lru_cache
+from typing import Literal
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -90,6 +91,13 @@ class Settings(BaseSettings):
     rate_limit_enabled: bool = True
     rate_limit_per_minute: int = 60
     login_rate_limit_per_minute: int = 5
+    # Only "memory" exists today (one process); a shared store such as Redis
+    # is needed once more than one instance serves traffic.
+    rate_limit_backend: Literal["memory"] = "memory"
+    # How many reverse proxies in front of the app append to X-Forwarded-For.
+    # 0 ignores the header and keys on the socket peer; set it only when the
+    # app is reachable solely through that many proxies.
+    rate_limit_trusted_proxy_hops: int = Field(default=0, ge=0)
 
     # --- CORS (comma-separated origins) ---
     cors_origins: str = "http://localhost:3000"

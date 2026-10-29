@@ -59,13 +59,31 @@ the hasher compares rather than decrypts.
   is added only when `COOKIE_SECURE=true` (i.e. an HTTPS deployment).
 - **Request-validation handling** so malformed requests return the standard
   error shape rather than a stack trace.
-- **Rate limiting**: a `rate_limit(...)` dependency factory backed by an
-  in-memory limiter, swappable for a Redis-backed one (`REDIS_URL`) without
-  touching callers. Tunables: `RATE_LIMIT_ENABLED`,
-  `RATE_LIMIT_PER_MINUTE` (default 60), `LOGIN_RATE_LIMIT_PER_MINUTE`
-  (default 5). **Status: implemented but not yet attached to specific routes** —
-  which endpoints must be limited is Not Specified in the architecture, so no
-  wiring was invented.
+- **Rate limiting**: the `rate_limit(...)` dependency, a fixed one-minute window
+  per client address and route. Over the limit the request gets 429
+  (`Too many requests.`) before authentication runs, so anonymous guessing is
+  counted too.
+
+  | Route | Limit |
+  | --- | --- |
+  | `POST /auth/login`, `POST /auth/signup` | `LOGIN_RATE_LIMIT_PER_MINUTE` (default 5) |
+  | `POST /payments/initiate`, `POST /payments/verify` | `RATE_LIMIT_PER_MINUTE` (default 60) |
+  | `POST /payments/webhooks/{provider}` | none (provider traffic, authenticated by signature) |
+
+  Configuration:
+  - `RATE_LIMIT_ENABLED` (default `true`) switches limiting off entirely. The
+    test suite sets it to `false`; rate-limit tests turn it back on.
+  - `RATE_LIMIT_BACKEND` (default and only value: `memory`). Counters live in
+    one process and expired entries are swept every minute, so memory follows
+    recent clients only. With more than one instance each keeps its own
+    counters; a shared backend (e.g. Redis at `REDIS_URL`) is needed then and
+    is not built yet.
+  - `RATE_LIMIT_TRUSTED_PROXY_HOPS` (default `0`). At 0 the client is the
+    socket peer and `X-Forwarded-For` is ignored, because a client can write
+    anything in it. Behind N reverse proxies, set N: the client is then the Nth
+    `X-Forwarded-For` entry from the right. Set it only when the app is
+    reachable solely through those proxies. Hosting is not chosen yet, so this
+    is still open; until it is set, everyone behind one proxy shares a limit.
 
 ## Secrets handling
 

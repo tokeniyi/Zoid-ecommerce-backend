@@ -39,8 +39,8 @@ a consistent `{"detail": ...}` shape and never a stack trace.
 
 | Method | Path | Auth | Notes |
 | --- | --- | --- | --- |
-| POST | `/auth/signup` | none | Creates a customer and opens a session (201). |
-| POST | `/auth/login` | none | Verifies credentials, sets the session cookie. Rate-limit friendly. |
+| POST | `/auth/signup` | none | Creates a customer and opens a session (201). Limited to `LOGIN_RATE_LIMIT_PER_MINUTE` (5) per client per minute; over that, 429. |
+| POST | `/auth/login` | none | Verifies credentials, sets the session cookie. Limited to `LOGIN_RATE_LIMIT_PER_MINUTE` (5) per client per minute; over that, 429. |
 | POST | `/auth/logout` | session | Clears the session cookie. |
 | GET | `/auth/me` | session | The current principal's identity. |
 
@@ -103,10 +103,10 @@ No endpoint here names a provider — the response is the normalized contract. S
 
 | Method | Path | Auth | Notes |
 | --- | --- | --- | --- |
-| POST | `/payments/initiate` | session | Open a payment for a pending order through the gateway. |
-| POST | `/payments/verify` | session | Ask the provider to confirm a payment; the client's word is not accepted. |
+| POST | `/payments/initiate` | session | Open a payment for a pending order through the gateway. Limited to `RATE_LIMIT_PER_MINUTE` (60) per client per minute. |
+| POST | `/payments/verify` | session | Ask the provider to confirm a payment; the client's word is not accepted. Limited to `RATE_LIMIT_PER_MINUTE` (60) per client per minute. |
 | POST | `/payments/refunds` | `manage:orders` | Refund a settled payment, in part or in full. |
-| POST | `/payments/webhooks/{provider}` | signature | Provider notification, authenticated by signature rather than session. |
+| POST | `/payments/webhooks/{provider}` | signature | Provider notification, authenticated by signature rather than session. Never rate limited. |
 
 ## Admin
 

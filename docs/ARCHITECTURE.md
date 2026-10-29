@@ -2729,6 +2729,6 @@ Recorded so the same traps are not re-discovered:
 - **Case-insensitive filesystems** cannot hold both `architecture.md` and
   `ARCHITECTURE.md`; the spec file is renamed (via git) to the uppercase
   deliverable name the roadmap and this document's own tree call for.
-- **Rate limiting is implemented but not yet attached to routes** — the
-  `rate_limit` dependency factory exists and is exported; no endpoint consumes
-  it yet (Not Specified which routes must be limited).
+- **Rate limiting is attached to login, signup, payment initiate and payment
+  verify** (not to payment webhooks); see [SECURITY.md](SECURITY.md) for limits
+  and proxy configuration.

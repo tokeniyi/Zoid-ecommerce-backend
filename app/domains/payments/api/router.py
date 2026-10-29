@@ -14,6 +14,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request
 
+from app.config import get_settings
 from app.domains.payments.api.schemas import (
     InitiatePaymentRequest,
     PaymentResponse,
@@ -33,11 +34,16 @@ from app.security.authorization import (
     require_authenticated_user,
     require_permission,
 )
+from app.security.protection import rate_limit
 
 router = APIRouter(prefix="/payments", tags=["payments"])
 
+# Initiate and verify call the provider, so each client is capped. Webhooks are
+# not: they come from the provider's own addresses and must never be refused.
+_payment_rate_limit = Depends(rate_limit(limit=lambda: get_settings().rate_limit_per_minute))
 
-@router.post("/initiate", response_model=PaymentResponse)
+
+@router.post("/initiate", response_model=PaymentResponse, dependencies=[_payment_rate_limit])
 async def initiate_payment(
     body: InitiatePaymentRequest,
     principal: Annotated[Principal, Depends(require_authenticated_user)],
@@ -50,7 +56,7 @@ async def initiate_payment(
     return serialize_initiation(transaction, initiation)
 
 
-@router.post("/verify", response_model=PaymentResponse)
+@router.post("/verify", response_model=PaymentResponse, dependencies=[_payment_rate_limit])
 async def verify_payment(
     body: VerifyPaymentRequest,
     principal: Annotated[Principal, Depends(require_authenticated_user)],

@@ -55,6 +55,7 @@ from app.infrastructure.persistence.sqlalchemy.unit_of_work import (
 from app.integrations.payments import build_webhook_adapter
 from app.integrations.payments.paystack import PaystackPaymentGateway
 from app.security.authentication.session import session_strategy_from_settings
+from tests.support.cookies import with_cookies
 from tests.unit.payments.test_order_notification import RecordingSender
 
 pytestmark = pytest.mark.database
@@ -124,7 +125,7 @@ def _register_and_login(client: TestClient) -> tuple[str, int]:
     login = client.post(f"{API}/auth/login", json={"email": email, "password": PASSWORD})
     assert login.status_code == 200, login.text
     session = str(login.cookies.get(COOKIE))
-    me = client.get(f"{API}/auth/me", cookies={COOKIE: session})
+    me = with_cookies(client, {COOKIE: session}).get(f"{API}/auth/me")
     assert me.status_code == 200, me.text
     return session, int(me.json()["id"])
 
@@ -214,27 +215,26 @@ def store(client: TestClient) -> tuple[RecordingSender, list[str]]:
 
 def _add_to_cart(client: TestClient, slug: str, *, cookie: str | None = None):
     cookies = {GUEST: cookie} if cookie else None
-    return client.post(
+    return with_cookies(client, cookies).post(
         f"{API}/cart/items",
-        cookies=cookies,
         json={"product_slug": slug, "size": "M", "quantity": 1},
     )
 
 
 def _checkout(client: TestClient, session: str) -> dict[str, Any]:
-    response = client.post(f"{API}/orders", cookies={COOKIE: session}, json=CHECKOUT)
+    response = with_cookies(client, {COOKIE: session}).post(f"{API}/orders", json=CHECKOUT)
     assert response.status_code == 201, response.text
     return response.json()
 
 
 def _initiate(client: TestClient, session: str, order_id: int):
-    return client.post(
-        f"{API}/payments/initiate", cookies={COOKIE: session}, json={"order_id": order_id}
+    return with_cookies(client, {COOKIE: session}).post(
+        f"{API}/payments/initiate", json={"order_id": order_id}
     )
 
 
 def _order_status(client: TestClient, session: str, order_id: int) -> str:
-    response = client.get(f"{API}/orders/{order_id}", cookies={COOKIE: session})
+    response = with_cookies(client, {COOKIE: session}).get(f"{API}/orders/{order_id}")
     assert response.status_code == 200, response.text
     return str(response.json()["status"])
 
@@ -296,7 +296,7 @@ async def test_anonymous_shopper_browses_and_bags_a_jersey_but_cannot_buy(
     assert added.status_code == 200, added.text
     guest = added.cookies.get(GUEST)
     assert guest, "the guest cart cookie is issued"
-    assert client.get(f"{API}/cart", cookies={GUEST: guest}).json()["count"] == 1
+    assert with_cookies(client, {GUEST: guest}).get(f"{API}/cart").json()["count"] == 1
 
     # Every step that spends, moves or reveals an account is refused without one.
     assert client.post(f"{API}/orders", json=CHECKOUT).status_code == 401
@@ -321,7 +321,7 @@ async def test_the_whole_path_from_guest_cart_to_a_paid_order_the_shop_can_read(
     # A guest bags a jersey, then becomes a member; the bag follows them in.
     guest = _add_to_cart(client, slug).cookies.get(GUEST)
     session, user_id = _register_and_login(client)
-    merged = client.post(f"{API}/cart/merge", cookies={COOKIE: session, GUEST: guest})
+    merged = with_cookies(client, {COOKIE: session, GUEST: guest}).post(f"{API}/cart/merge")
     assert merged.status_code == 200, merged.text
     assert merged.json()["count"] == 1
 
@@ -343,8 +343,8 @@ async def test_the_whole_path_from_guest_cart_to_a_paid_order_the_shop_can_read(
     reference = payment["payment_id"]
 
     # Confirmation changes both ledger and order.
-    verified = client.post(
-        f"{API}/payments/verify", cookies={COOKIE: session}, json={"reference": reference}
+    verified = with_cookies(client, {COOKIE: session}).post(
+        f"{API}/payments/verify", json={"reference": reference}
     )
     assert verified.status_code == 200, verified.text
     assert verified.json()["status"] == "paid"
@@ -359,9 +359,8 @@ async def test_the_whole_path_from_guest_cart_to_a_paid_order_the_shop_can_read(
     assert "42,000.00 NGN" in body
 
     # And an admin can read the paid order back out of the order book.
-    book = client.get(
+    book = with_cookies(client, {COOKIE: _admin_token(user_id)}).get(
         f"{API}/admin/orders",
-        cookies={COOKIE: _admin_token(user_id)},
         params={"page_size": 100},
     )
     assert book.status_code == 200, book.text
@@ -379,9 +378,8 @@ async def test_a_webhook_settles_the_order_once_and_a_redelivery_repeats_nothing
     emails, _ = store
     slug = await _seed_product()
     session, user_id = _register_and_login(client)
-    added = client.post(
+    added = with_cookies(client, {COOKIE: session}).post(
         f"{API}/cart/items",
-        cookies={COOKIE: session},
         json={"product_slug": slug, "size": "M", "quantity": 1},
     )
     assert added.status_code == 200, added.text
@@ -405,9 +403,8 @@ async def test_a_webhook_settles_the_order_once_and_a_redelivery_repeats_nothing
     assert _order_status(client, session, order_id) == "PAID"
     assert len(emails.calls) == 1
 
-    book = client.get(
+    book = with_cookies(client, {COOKIE: _admin_token(user_id)}).get(
         f"{API}/admin/orders",
-        cookies={COOKIE: _admin_token(user_id)},
         params={"page_size": 100},
     )
     row = next(item for item in book.json()["items"] if item["id"] == order_id)

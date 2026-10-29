@@ -26,6 +26,7 @@ from app.infrastructure.persistence.sqlalchemy.session import (
     create_engine_from_url,
 )
 from app.infrastructure.persistence.sqlalchemy.unit_of_work import SqlAlchemyUnitOfWork
+from tests.support.cookies import with_cookies
 
 pytestmark = pytest.mark.database
 
@@ -87,15 +88,16 @@ def _register_and_login(client: TestClient) -> str:
 
 
 def _add_to_cart(client: TestClient, session: str, slug: str, *, quantity: int = 1):
-    return client.post(
+    return with_cookies(client, {COOKIE: session}).post(
         f"{API}/cart/items",
-        cookies={COOKIE: session},
         json={"product_slug": slug, "size": "M", "quantity": quantity},
     )
 
 
 def _checkout(client: TestClient, session: str, **overrides: object):
-    return client.post(f"{API}/orders", cookies={COOKIE: session}, json={**CHECKOUT, **overrides})
+    return with_cookies(client, {COOKIE: session}).post(
+        f"{API}/orders", json={**CHECKOUT, **overrides}
+    )
 
 
 async def test_orders_require_authentication(client: TestClient) -> None:
@@ -124,17 +126,17 @@ async def test_checkout_creates_pending_payment_order(client: TestClient) -> Non
     assert line["unit_price"] == "42000.00"
     assert line["line_total"] == "84000.00"
 
-    fetched = client.get(f"{API}/orders/{order['id']}", cookies={COOKIE: session})
+    fetched = with_cookies(client, {COOKIE: session}).get(f"{API}/orders/{order['id']}")
     assert fetched.status_code == 200, fetched.text
     assert fetched.json()["reference"] == order["reference"]
 
-    listed = client.get(f"{API}/orders", cookies={COOKIE: session})
+    listed = with_cookies(client, {COOKIE: session}).get(f"{API}/orders")
     assert listed.status_code == 200
     assert [item["id"] for item in listed.json()] == [order["id"]]
     assert listed.json()[0]["status"] == "PENDING_PAYMENT"
 
     # The cart was consumed by the order.
-    cart = client.get(f"{API}/cart", cookies={COOKIE: session})
+    cart = with_cookies(client, {COOKIE: session}).get(f"{API}/cart")
     assert cart.json()["count"] == 0
 
 
@@ -145,9 +147,11 @@ async def test_orders_are_private_to_their_owner(client: TestClient) -> None:
     _add_to_cart(client, session_a, slug)
     order_id = _checkout(client, session_a).json()["id"]
 
-    assert client.get(f"{API}/orders/{order_id}", cookies={COOKIE: session_b}).status_code == 404
-    assert client.get(f"{API}/orders", cookies={COOKIE: session_b}).json() == []
-    assert len(client.get(f"{API}/orders", cookies={COOKIE: session_a}).json()) == 1
+    assert (
+        with_cookies(client, {COOKIE: session_b}).get(f"{API}/orders/{order_id}").status_code == 404
+    )
+    assert with_cookies(client, {COOKIE: session_b}).get(f"{API}/orders").json() == []
+    assert len(with_cookies(client, {COOKIE: session_a}).get(f"{API}/orders").json()) == 1
 
 
 async def test_empty_cart_cannot_be_ordered(client: TestClient) -> None:
@@ -167,8 +171,8 @@ async def test_insufficient_stock_blocks_checkout(client: TestClient) -> None:
 
     assert response.status_code == 409, response.text
     # Nothing was ordered and the cart is intact for the customer to fix.
-    assert client.get(f"{API}/orders", cookies={COOKIE: session}).json() == []
-    assert client.get(f"{API}/cart", cookies={COOKIE: session}).json()["count"] == 3
+    assert with_cookies(client, {COOKIE: session}).get(f"{API}/orders").json() == []
+    assert with_cookies(client, {COOKIE: session}).get(f"{API}/cart").json()["count"] == 3
 
 
 async def test_checkout_details_are_validated(client: TestClient) -> None:

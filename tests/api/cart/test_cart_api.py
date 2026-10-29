@@ -28,6 +28,7 @@ from app.infrastructure.persistence.sqlalchemy.session import (
     create_engine_from_url,
 )
 from app.infrastructure.persistence.sqlalchemy.unit_of_work import SqlAlchemyUnitOfWork
+from tests.support.cookies import with_cookies
 
 pytestmark = pytest.mark.database
 
@@ -89,10 +90,9 @@ def _add(
     cookie: str | None = None,
 ):
     cookies = {GUEST_CART_COOKIE: cookie} if cookie else None
-    return client.post(
+    return with_cookies(client, cookies).post(
         f"{API}/cart/items",
         json={"product_slug": slug, "size": size, "quantity": qty},
-        cookies=cookies,
     )
 
 
@@ -109,7 +109,7 @@ async def test_guest_creates_cart_and_adds_item(client: TestClient) -> None:
     guest_token = response.cookies.get(GUEST_CART_COOKIE)
     assert guest_token, "guest cart cookie should be issued"
 
-    fetched = client.get(f"{API}/cart", cookies={GUEST_CART_COOKIE: guest_token})
+    fetched = with_cookies(client, {GUEST_CART_COOKIE: guest_token}).get(f"{API}/cart")
     assert fetched.status_code == 200
     assert fetched.json()["count"] == 2
 
@@ -131,15 +131,14 @@ async def test_guest_update_and_remove_item(client: TestClient) -> None:
     token = added.cookies.get(GUEST_CART_COOKIE)
     item_id = added.json()["items"][0]["id"]
 
-    updated = client.patch(
+    updated = with_cookies(client, {GUEST_CART_COOKIE: token}).patch(
         f"{API}/cart/items/{item_id}",
-        cookies={GUEST_CART_COOKIE: token},
         json={"quantity": 7},
     )
     assert updated.status_code == 200, updated.text
     assert updated.json()["items"][0]["quantity"] == 7
 
-    removed = client.delete(f"{API}/cart/items/{item_id}", cookies={GUEST_CART_COOKIE: token})
+    removed = with_cookies(client, {GUEST_CART_COOKIE: token}).delete(f"{API}/cart/items/{item_id}")
     assert removed.status_code == 200, removed.text
     assert removed.json()["items"] == []
 
@@ -148,9 +147,8 @@ async def test_authenticated_user_has_own_cart(client: TestClient) -> None:
     slug = await _product_slug()
     session = _register_and_login(client)
 
-    added = client.post(
+    added = with_cookies(client, {COOKIE: session}).post(
         f"{API}/cart/items",
-        cookies={COOKIE: session},
         json={"product_slug": slug, "size": "L", "quantity": 2},
     )
     assert added.status_code == 200, added.text
@@ -158,7 +156,7 @@ async def test_authenticated_user_has_own_cart(client: TestClient) -> None:
     # An authenticated response must not mint a guest cart cookie.
     assert added.cookies.get(GUEST_CART_COOKIE) is None
 
-    fetched = client.get(f"{API}/cart", cookies={COOKIE: session})
+    fetched = with_cookies(client, {COOKIE: session}).get(f"{API}/cart")
     assert fetched.json()["items"][0]["size"] == "L"
 
 
@@ -169,7 +167,7 @@ async def test_guest_cart_is_not_the_authenticated_cart(client: TestClient) -> N
 
     # The same shopper, now authenticated, sees their own (empty) cart — the
     # guest bag is not exposed just because they logged in.
-    mine = client.get(f"{API}/cart", cookies={COOKIE: session})
+    mine = with_cookies(client, {COOKIE: session}).get(f"{API}/cart")
 
     assert mine.json()["count"] == 0
     assert guest is not None
@@ -184,9 +182,8 @@ async def test_merge_folds_guest_cart_into_user(client: TestClient) -> None:
     guest = _add(client, slug, qty=3).cookies.get(GUEST_CART_COOKIE)
     session = _register_and_login(client)
 
-    merged = client.post(
+    merged = with_cookies(client, {COOKIE: session, GUEST_CART_COOKIE: guest}).post(
         f"{API}/cart/merge",
-        cookies={COOKIE: session, GUEST_CART_COOKIE: guest},
     )
 
     assert merged.status_code == 200, merged.text
@@ -194,5 +191,5 @@ async def test_merge_folds_guest_cart_into_user(client: TestClient) -> None:
     assert merged.json()["items"][0]["product_slug"] == slug
 
     # The user's cart now durably holds the merged line.
-    mine = client.get(f"{API}/cart", cookies={COOKIE: session})
+    mine = with_cookies(client, {COOKIE: session}).get(f"{API}/cart")
     assert mine.json()["count"] == 3

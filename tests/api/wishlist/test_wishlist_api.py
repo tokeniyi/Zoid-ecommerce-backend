@@ -26,6 +26,7 @@ from app.infrastructure.persistence.sqlalchemy.session import (
     create_engine_from_url,
 )
 from app.infrastructure.persistence.sqlalchemy.unit_of_work import SqlAlchemyUnitOfWork
+from tests.support.cookies import with_cookies
 
 pytestmark = pytest.mark.database
 
@@ -78,9 +79,8 @@ def _register_and_login(client: TestClient) -> str:
 
 
 def _add(client: TestClient, session: str, slug: str):
-    return client.post(
+    return with_cookies(client, {COOKIE: session}).post(
         f"{API}/wishlist/items",
-        cookies={COOKIE: session},
         json={"product_slug": slug},
     )
 
@@ -100,14 +100,14 @@ async def test_add_list_and_remove_flow(client: TestClient) -> None:
     assert added.json()["items"][0]["product_slug"] == slug
     assert added.json()["items"][0]["price"] == "33000.00"
 
-    listed = client.get(f"{API}/wishlist", cookies={COOKIE: session})
+    listed = with_cookies(client, {COOKIE: session}).get(f"{API}/wishlist")
     assert listed.json()["count"] == 1
 
-    removed = client.delete(f"{API}/wishlist/items/{slug}", cookies={COOKIE: session})
+    removed = with_cookies(client, {COOKIE: session}).delete(f"{API}/wishlist/items/{slug}")
     assert removed.status_code == 200, removed.text
     assert removed.json()["count"] == 0
 
-    after = client.get(f"{API}/wishlist", cookies={COOKIE: session})
+    after = with_cookies(client, {COOKIE: session}).get(f"{API}/wishlist")
     assert after.json()["count"] == 0
 
 
@@ -132,7 +132,7 @@ async def test_add_unknown_product_returns_404(client: TestClient) -> None:
 async def test_remove_not_saved_returns_404(client: TestClient) -> None:
     session = _register_and_login(client)
 
-    response = client.delete(f"{API}/wishlist/items/never-added", cookies={COOKIE: session})
+    response = with_cookies(client, {COOKIE: session}).delete(f"{API}/wishlist/items/never-added")
 
     assert response.status_code == 404, response.text
 
@@ -145,11 +145,11 @@ async def test_wishlists_are_isolated_per_user(client: TestClient) -> None:
     assert _add(client, session_a, slug).status_code == 200
 
     # User B neither sees nor can remove user A's saved product.
-    b_list = client.get(f"{API}/wishlist", cookies={COOKIE: session_b})
+    b_list = with_cookies(client, {COOKIE: session_b}).get(f"{API}/wishlist")
     assert b_list.json()["count"] == 0
 
-    b_remove = client.delete(f"{API}/wishlist/items/{slug}", cookies={COOKIE: session_b})
+    b_remove = with_cookies(client, {COOKIE: session_b}).delete(f"{API}/wishlist/items/{slug}")
     assert b_remove.status_code == 404
 
-    a_list = client.get(f"{API}/wishlist", cookies={COOKIE: session_a})
+    a_list = with_cookies(client, {COOKIE: session_a}).get(f"{API}/wishlist")
     assert a_list.json()["count"] == 1

@@ -74,3 +74,9 @@ markers = [
 # A test that hangs dumps every thread's stack after this many seconds, so a
 # hang is reported as a hang (with its location), not as a silent stall.
 faulthandler_timeout = 120
+# Deprecations raised from our own code, and per-request cookies (use
+# tests/support/cookies.py instead), fail the run rather than piling up.
+filterwarnings = [
+    "error::DeprecationWarning:app\\.",
+    "error:Setting per-request cookies:DeprecationWarning",
+]

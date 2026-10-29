@@ -37,6 +37,7 @@ from app.infrastructure.persistence.sqlalchemy.session import (
 from app.infrastructure.persistence.sqlalchemy.unit_of_work import SqlAlchemyUnitOfWork
 from app.main import app
 from app.security.authentication.session import session_strategy_from_settings
+from tests.support.cookies import with_cookies
 
 pytestmark = pytest.mark.database
 
@@ -102,7 +103,7 @@ def _signup(client: TestClient) -> tuple[str, int]:
     login = client.post(f"{API}/auth/login", json={"email": email, "password": PASSWORD})
     assert login.status_code == 200, login.text
     session = login.cookies.get(COOKIE)
-    me = client.get(f"{API}/auth/me", cookies={COOKIE: session})
+    me = with_cookies(client, {COOKIE: session}).get(f"{API}/auth/me")
     assert me.status_code == 200, me.text
     return session, me.json()["id"]
 
@@ -171,8 +172,8 @@ def _new_product(**overrides: Any) -> dict[str, Any]:
 
 
 def _create(client: TestClient, admin: str, **overrides: Any) -> dict[str, Any]:
-    response = client.post(
-        f"{API}/admin/products", cookies={COOKIE: admin}, json=_new_product(**overrides)
+    response = with_cookies(client, {COOKIE: admin}).post(
+        f"{API}/admin/products", json=_new_product(**overrides)
     )
     assert response.status_code == 201, response.text
     return response.json()
@@ -207,9 +208,8 @@ def _all_customers(client: TestClient, admin: str) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     page = 1
     while True:
-        body = client.get(
+        body = with_cookies(client, {COOKIE: admin}).get(
             f"{API}/admin/users",
-            cookies={COOKIE: admin},
             params={"page": page, "page_size": 100},
         ).json()
         rows.extend(body["items"])
@@ -249,8 +249,8 @@ async def test_no_customer_may_reach_the_admin_api(client: TestClient) -> None:
     """
     session, _ = _signup(client)
     for method, path in ADMIN_OPERATIONS:
-        response = client.request(
-            method, _concrete(path), cookies={COOKIE: session}, json=_body_for(method)
+        response = with_cookies(client, {COOKIE: session}).request(
+            method, _concrete(path), json=_body_for(method)
         )
         assert response.status_code == 403, f"{method} {path}: {response.text}"
 
@@ -262,9 +262,8 @@ async def test_a_customers_own_session_does_not_become_admin_by_being_real(
     session, user_id = _signup(client)
     product = _create(client, _mint("admin", user_id), sizes=[{"size": "M", "quantity": 0}])
 
-    refused = client.post(
+    refused = with_cookies(client, {COOKIE: session}).post(
         f"{API}/admin/products/{product['id']}/stock",
-        cookies={COOKIE: session},
         json={"size": "M", "quantity": 50},
     )
 
@@ -285,13 +284,13 @@ async def test_the_same_person_is_an_admin_only_when_the_session_says_so(
     customer_token = _mint("customer", user_id)
     client.cookies.clear()
     assert (
-        client.get(f"{API}/admin/dashboard", cookies={COOKIE: customer_token}).status_code
+        with_cookies(client, {COOKIE: customer_token}).get(f"{API}/admin/dashboard").status_code
         == 403
     )
     admin_token = _mint("admin", user_id)
     client.cookies.clear()
     assert (
-        client.get(f"{API}/admin/dashboard", cookies={COOKIE: admin_token}).status_code
+        with_cookies(client, {COOKIE: admin_token}).get(f"{API}/admin/dashboard").status_code
         == 200
     )
 
@@ -299,7 +298,7 @@ async def test_the_same_person_is_an_admin_only_when_the_session_says_so(
 async def test_a_role_that_is_not_admin_is_not_admin(client: TestClient) -> None:
     """Nothing shorter or looser than the admin role opens the door."""
     for role in ("staff", "SUPERADMIN", "admin ", ""):
-        response = client.get(f"{API}/admin/users", cookies={COOKIE: _mint(role)})
+        response = with_cookies(client, {COOKIE: _mint(role)}).get(f"{API}/admin/users")
         assert response.status_code == 403, f"{role!r}: {response.text}"
 
 
@@ -310,7 +309,7 @@ async def test_an_admin_adds_a_product_the_storefront_then_sells(client: TestCli
     admin = _mint("admin")
     payload = _new_product()
 
-    created = client.post(f"{API}/admin/products", cookies={COOKIE: admin}, json=payload)
+    created = with_cookies(client, {COOKIE: admin}).post(f"{API}/admin/products", json=payload)
 
     assert created.status_code == 201, created.text
     product = created.json()
@@ -328,12 +327,11 @@ async def test_an_admin_adds_a_product_the_storefront_then_sells(client: TestCli
 async def test_two_products_cannot_share_one_catalog_name(client: TestClient) -> None:
     admin = _mint("admin")
     payload = _new_product()
-    created = client.post(f"{API}/admin/products", cookies={COOKIE: admin}, json=payload)
+    created = with_cookies(client, {COOKIE: admin}).post(f"{API}/admin/products", json=payload)
     assert created.status_code == 201, created.text
 
-    again = client.post(
+    again = with_cookies(client, {COOKIE: admin}).post(
         f"{API}/admin/products",
-        cookies={COOKIE: admin},
         json={**payload, "name": "A different name, the same slug"},
     )
 
@@ -347,25 +345,22 @@ async def test_a_new_product_is_checked_as_a_product_before_it_is_a_request(
     admin = _mint("admin")
 
     assert (
-        client.post(
+        with_cookies(client, {COOKIE: admin}).post(
             f"{API}/admin/products",
-            cookies={COOKIE: admin},
             json=_new_product(name="   "),
         ).status_code
         == 422
     )
     assert (
-        client.post(
+        with_cookies(client, {COOKIE: admin}).post(
             f"{API}/admin/products",
-            cookies={COOKIE: admin},
             json=_new_product(sizes=[{"size": "M", "quantity": -2}]),
         ).status_code
         == 422
     )
     assert (
-        client.post(
+        with_cookies(client, {COOKIE: admin}).post(
             f"{API}/admin/products",
-            cookies={COOKIE: admin},
             json=_new_product(images=[{"url": "/a.jpg", "view": "side"}]),
         ).status_code
         == 422
@@ -376,9 +371,8 @@ async def test_an_admin_edits_a_product_without_losing_the_rest(client: TestClie
     admin = _mint("admin")
     product = _create(client, admin)
 
-    edited = client.patch(
+    edited = with_cookies(client, {COOKIE: admin}).patch(
         f"{API}/admin/products/{product['id']}",
-        cookies={COOKIE: admin},
         json={"name": "Renamed Jersey", "price": "61000.00"},
     )
 
@@ -400,8 +394,8 @@ async def test_an_empty_edit_changes_nothing_and_breaks_nothing(client: TestClie
     admin = _mint("admin")
     product = _create(client, admin)
 
-    edited = client.patch(
-        f"{API}/admin/products/{product['id']}", cookies={COOKIE: admin}, json={}
+    edited = with_cookies(client, {COOKIE: admin}).patch(
+        f"{API}/admin/products/{product['id']}", json={}
     )
 
     assert edited.status_code == 200, edited.text
@@ -412,9 +406,8 @@ async def test_a_price_the_catalog_would_not_accept_is_not_a_price(client: TestC
     admin = _mint("admin")
     product = _create(client, admin)
 
-    refused = client.patch(
+    refused = with_cookies(client, {COOKIE: admin}).patch(
         f"{API}/admin/products/{product['id']}",
-        cookies={COOKIE: admin},
         json={"price": "-1.00"},
     )
 
@@ -428,18 +421,16 @@ async def test_hiding_a_product_takes_it_off_the_shelf_not_off_the_record(
     admin = _mint("admin")
     product = _create(client, admin)
 
-    hidden = client.patch(
+    hidden = with_cookies(client, {COOKIE: admin}).patch(
         f"{API}/admin/products/{product['id']}",
-        cookies={COOKIE: admin},
         json={"is_active": False},
     )
 
     assert hidden.status_code == 200, hidden.text
     assert product["slug"] not in _listed_slugs(client)
     # A product the shop hid can still be edited back: the record survived.
-    restored = client.patch(
+    restored = with_cookies(client, {COOKIE: admin}).patch(
         f"{API}/admin/products/{product['id']}",
-        cookies={COOKIE: admin},
         json={"is_active": True},
     )
     assert restored.json()["is_active"] is True
@@ -449,8 +440,8 @@ async def test_hiding_a_product_takes_it_off_the_shelf_not_off_the_record(
 async def test_an_admin_edits_a_product_that_is_not_there(client: TestClient) -> None:
     admin = _mint("admin")
 
-    missing = client.patch(
-        f"{API}/admin/products/99999999", cookies={COOKIE: admin}, json={"name": "Ghost"}
+    missing = with_cookies(client, {COOKIE: admin}).patch(
+        f"{API}/admin/products/99999999", json={"name": "Ghost"}
     )
 
     assert missing.status_code == 404, missing.text
@@ -464,9 +455,8 @@ async def test_an_admin_puts_stock_back_where_it_sold_out(client: TestClient) ->
     product = _create(client, admin, sizes=[{"size": "M", "quantity": 0}])
     assert product["stock"] == {"M": 0}
 
-    restocked = client.post(
+    restocked = with_cookies(client, {COOKIE: admin}).post(
         f"{API}/admin/products/{product['id']}/stock",
-        cookies={COOKIE: admin},
         json={"size": "M", "quantity": 12},
     )
 
@@ -485,14 +475,12 @@ async def test_restocking_accumulates_rather_than_replaces(client: TestClient) -
     admin = _mint("admin")
     product = _create(client, admin, sizes=[{"size": "M", "quantity": 3}])
 
-    first = client.post(
+    first = with_cookies(client, {COOKIE: admin}).post(
         f"{API}/admin/products/{product['id']}/stock",
-        cookies={COOKIE: admin},
         json={"size": "M", "quantity": 2},
     )
-    second = client.post(
+    second = with_cookies(client, {COOKIE: admin}).post(
         f"{API}/admin/products/{product['id']}/stock",
-        cookies={COOKIE: admin},
         json={"size": "M", "quantity": 5},
     )
 
@@ -507,20 +495,21 @@ async def test_what_is_already_promised_stays_promised(client: TestClient) -> No
     seeded = await _seed_product(stock=1)
     session, _ = _signup(client)
     assert (
-        client.post(
+        with_cookies(client, {COOKIE: session}).post(
             f"{API}/cart/items",
-            cookies={COOKIE: session},
             json={"product_slug": seeded.slug, "size": "M", "quantity": 1},
         )
     ).status_code == 200
     assert (
-        client.post(f"{API}/orders", cookies={COOKIE: session}, json=CHECKOUT).status_code == 201
+        with_cookies(client, {COOKIE: session})
+        .post(f"{API}/orders", json=CHECKOUT)
+        .status_code
+        == 201
     )
     assert _shelf(client, seeded.slug) == {"M": 0}
 
-    restocked = client.post(
+    restocked = with_cookies(client, {COOKIE: admin}).post(
         f"{API}/admin/products/{seeded.id}/stock",
-        cookies={COOKIE: admin},
         json={"size": "M", "quantity": 4},
     )
 
@@ -534,9 +523,8 @@ async def test_stock_cannot_be_sent_to_a_size_that_is_not_offered(client: TestCl
     admin = _mint("admin")
     product = _create(client, admin)
 
-    missing = client.post(
+    missing = with_cookies(client, {COOKIE: admin}).post(
         f"{API}/admin/products/{product['id']}/stock",
-        cookies={COOKIE: admin},
         json={"size": "XXXL", "quantity": 5},
     )
 
@@ -550,9 +538,8 @@ async def test_the_shop_is_not_restocked_with_nothing(client: TestClient) -> Non
     product = _create(client, admin)
 
     for quantity in (0, -5, None):
-        refused = client.post(
+        refused = with_cookies(client, {COOKIE: admin}).post(
             f"{API}/admin/products/{product['id']}/stock",
-            cookies={COOKIE: admin},
             json={"size": "M", "quantity": quantity},
         )
         assert refused.status_code == 422, refused.text
@@ -570,25 +557,24 @@ async def test_the_admin_sees_the_order_book_as_the_store_keeps_it(
     seeded = await _seed_product()
     session, user_id = _signup(client)
     assert (
-        client.post(
+        with_cookies(client, {COOKIE: session}).post(
             f"{API}/cart/items",
-            cookies={COOKIE: session},
             json={"product_slug": seeded.slug, "size": "M", "quantity": 2},
         )
     ).status_code == 200
-    placed = client.post(f"{API}/orders", cookies={COOKIE: session}, json=CHECKOUT)
+    placed = with_cookies(client, {COOKIE: session}).post(f"{API}/orders", json=CHECKOUT)
     assert placed.status_code == 201, placed.text
     order = placed.json()
     admin = _mint("admin", user_id)
 
     def find() -> dict[str, Any]:
-        listed = client.get(
-            f"{API}/admin/orders", cookies={COOKIE: admin}, params={"page_size": 100}
+        listed = with_cookies(client, {COOKIE: admin}).get(
+            f"{API}/admin/orders", params={"page_size": 100}
         ).json()
         return next(row for row in listed["items"] if row["id"] == order["id"])
 
     assert (
-        client.get(f"{API}/orders", cookies={COOKIE: session}).json()[0]["status"]
+        with_cookies(client, {COOKIE: session}).get(f"{API}/orders").json()[0]["status"]
         == "PENDING_PAYMENT"
     )
     seen = find()
@@ -616,21 +602,23 @@ async def test_an_admin_reads_every_customers_orders_not_just_their_own(
     second, _ = _signup(client)
     for who in (first, second):
         assert (
-            client.post(
+            with_cookies(client, {COOKIE: who}).post(
                 f"{API}/cart/items",
-                cookies={COOKIE: who},
                 json={"product_slug": seeded.slug, "size": "M", "quantity": 1},
             )
         ).status_code == 200
         assert (
-            client.post(f"{API}/orders", cookies={COOKIE: who}, json=CHECKOUT).status_code == 201
+            with_cookies(client, {COOKIE: who})
+            .post(f"{API}/orders", json=CHECKOUT)
+            .status_code
+            == 201
         )
 
-    listed = client.get(
-        f"{API}/admin/orders", cookies={COOKIE: _mint("admin", first_id)}, params={"page_size": 100}
+    listed = with_cookies(client, {COOKIE: _mint("admin", first_id)}).get(
+        f"{API}/admin/orders", params={"page_size": 100}
     ).json()
 
-    assert len(client.get(f"{API}/orders", cookies={COOKIE: first}).json()) == 1
+    assert len(with_cookies(client, {COOKIE: first}).get(f"{API}/orders").json()) == 1
     assert [order["id"] for order in listed["items"]] == sorted(
         (order["id"] for order in listed["items"]), reverse=True
     )
@@ -643,19 +631,18 @@ async def test_the_order_book_is_paged(client: TestClient) -> None:
     session, user_id = _signup(client)
     for _ in range(2):
         assert (
-            client.post(
+            with_cookies(client, {COOKIE: session}).post(
                 f"{API}/cart/items",
-                cookies={COOKIE: session},
                 json={"product_slug": seeded.slug, "size": "M", "quantity": 1},
             )
         ).status_code == 200
         assert (
-            client.post(f"{API}/orders", cookies={COOKIE: session}, json=CHECKOUT).status_code
+            with_cookies(client, {COOKIE: session}).post(f"{API}/orders", json=CHECKOUT).status_code
             == 201
         )
 
-    page = client.get(
-        f"{API}/admin/orders", cookies={COOKIE: _mint("admin", user_id)}, params={"page_size": 1}
+    page = with_cookies(client, {COOKIE: _mint("admin", user_id)}).get(
+        f"{API}/admin/orders", params={"page_size": 1}
     ).json()
 
     assert len(page["items"]) == 1
@@ -667,13 +654,17 @@ async def test_an_admin_reads_the_customer_list(client: TestClient) -> None:
     seeded = await _seed_product()
     session, customer_id = _signup(client)
     assert (
-        client.post(
+        with_cookies(client, {COOKIE: session}).post(
             f"{API}/cart/items",
-            cookies={COOKIE: session},
             json={"product_slug": seeded.slug, "size": "M", "quantity": 1},
         )
     ).status_code == 200
-    assert client.post(f"{API}/orders", cookies={COOKIE: session}, json=CHECKOUT).status_code == 201
+    assert (
+        with_cookies(client, {COOKIE: session})
+        .post(f"{API}/orders", json=CHECKOUT)
+        .status_code
+        == 201
+    )
 
     row = next(
         user
@@ -685,7 +676,8 @@ async def test_an_admin_reads_the_customer_list(client: TestClient) -> None:
     assert row["email"].startswith("zoid-admin-")
     assert row["created_at"]
     # What a customer is never shown: anybody else's profile.
-    assert client.get(f"{API}/users/me", cookies={COOKIE: session}).json()["id"] == customer_id
+    me = with_cookies(client, {COOKIE: session}).get(f"{API}/users/me")
+    assert me.json()["id"] == customer_id
 
 
 async def test_the_customer_list_is_paged_and_covers_everyone(client: TestClient) -> None:
@@ -695,9 +687,8 @@ async def test_the_customer_list_is_paged_and_covers_everyone(client: TestClient
 
     seen: set[int] = set()
     for page_number in (1, 2):
-        page = client.get(
+        page = with_cookies(client, {COOKIE: admin}).get(
             f"{API}/admin/users",
-            cookies={COOKIE: admin},
             params={"page": page_number, "page_size": 1},
         ).json()
         assert len(page["items"]) <= 1
@@ -709,9 +700,8 @@ async def test_the_customer_list_is_paged_and_covers_everyone(client: TestClient
 
 
 async def test_a_page_that_does_not_exist_is_empty_not_an_error(client: TestClient) -> None:
-    listed = client.get(
+    listed = with_cookies(client, {COOKIE: _mint("admin")}).get(
         f"{API}/admin/orders",
-        cookies={COOKIE: _mint("admin")},
         params={"page": 99999, "page_size": 20},
     ).json()
 
@@ -731,17 +721,16 @@ async def test_the_dashboard_reports_the_store_the_admin_can_act_on(
     thin = _create(client, admin, sizes=[{"size": "M", "quantity": 2}], price="30000.00")
     session, _ = _signup(client)
     assert (
-        client.post(
+        with_cookies(client, {COOKIE: session}).post(
             f"{API}/cart/items",
-            cookies={COOKIE: session},
             json={"product_slug": thin["slug"], "size": "M", "quantity": 1},
         )
     ).status_code == 200
-    placed = client.post(f"{API}/orders", cookies={COOKIE: session}, json=CHECKOUT)
+    placed = with_cookies(client, {COOKIE: session}).post(f"{API}/orders", json=CHECKOUT)
     assert placed.status_code == 201, placed.text
     order_id = placed.json()["id"]
 
-    before = client.get(f"{API}/admin/dashboard", cookies={COOKIE: admin}).json()
+    before = with_cookies(client, {COOKIE: admin}).get(f"{API}/admin/dashboard").json()
 
     assert before["catalog"]["products"] >= 2
     # One sold out, one thin: two products to restock, and neither is "plenty".
@@ -755,7 +744,7 @@ async def test_the_dashboard_reports_the_store_the_admin_can_act_on(
     assert before["customers"]["total"] >= 1
 
     await _mark_paid(order_id)
-    after = client.get(f"{API}/admin/dashboard", cookies={COOKIE: admin}).json()
+    after = with_cookies(client, {COOKIE: admin}).get(f"{API}/admin/dashboard").json()
 
     assert after["orders"]["paid"] == before["orders"]["paid"] + 1
     assert after["orders"]["total"] == before["orders"]["total"]
@@ -763,12 +752,11 @@ async def test_the_dashboard_reports_the_store_the_admin_can_act_on(
 
     # Restocking moves the shelf, and the dashboard follows the shelf.
     assert _shelf(client, sold_out["slug"]) == {"M": 0}
-    client.post(
+    with_cookies(client, {COOKIE: admin}).post(
         f"{API}/admin/products/{sold_out['id']}/stock",
-        cookies={COOKIE: admin},
         json={"size": "M", "quantity": 9},
     )
-    landed = client.get(f"{API}/admin/dashboard", cookies={COOKIE: admin}).json()
+    landed = with_cookies(client, {COOKIE: admin}).get(f"{API}/admin/dashboard").json()
     assert landed["catalog"]["out_of_stock"] == before["catalog"]["out_of_stock"] - 1
     assert landed["catalog"]["units_available"] >= before["catalog"]["units_available"] + 9
 
@@ -781,17 +769,19 @@ async def test_the_dashboard_counts_stock_that_can_actually_be_sold(
     product = _create(client, admin, sizes=[{"size": "M", "quantity": 6}], price="1000.00")
     session, _ = _signup(client)
     assert (
-        client.post(
+        with_cookies(client, {COOKIE: session}).post(
             f"{API}/cart/items",
-            cookies={COOKIE: session},
             json={"product_slug": product["slug"], "size": "M", "quantity": 4},
         )
     ).status_code == 200
     assert (
-        client.post(f"{API}/orders", cookies={COOKIE: session}, json=CHECKOUT).status_code == 201
+        with_cookies(client, {COOKIE: session})
+        .post(f"{API}/orders", json=CHECKOUT)
+        .status_code
+        == 201
     )
 
-    stats = client.get(f"{API}/admin/dashboard", cookies={COOKIE: admin}).json()["catalog"]
+    stats = with_cookies(client, {COOKIE: admin}).get(f"{API}/admin/dashboard").json()["catalog"]
 
     # 6 made, 4 reserved → 2 left: still low, still only worth 2 x 1000 of it.
     assert _shelf(client, product["slug"]) == {"M": 2}

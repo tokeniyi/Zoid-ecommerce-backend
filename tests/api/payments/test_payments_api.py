@@ -65,6 +65,7 @@ from app.integrations.payments import build_payment_gateway, build_webhook_adapt
 from app.integrations.payments.paystack import PaystackPaymentGateway
 from app.security.authentication.session import session_strategy_from_settings
 from app.shared.exceptions import ProviderNotConfiguredError
+from tests.support.cookies import with_cookies
 from tests.unit.payments.test_order_notification import RecordingSender
 
 pytestmark = pytest.mark.database
@@ -191,7 +192,7 @@ def _register_and_login(client: TestClient) -> tuple[str, int]:
     login = client.post(f"{API}/auth/login", json={"email": email, "password": PASSWORD})
     assert login.status_code == 200, login.text
     session = login.cookies.get(COOKIE)
-    me = client.get(f"{API}/auth/me", cookies={COOKIE: session})
+    me = with_cookies(client, {COOKIE: session}).get(f"{API}/auth/me")
     assert me.status_code == 200, me.text
     return session, me.json()["id"]
 
@@ -199,20 +200,19 @@ def _register_and_login(client: TestClient) -> tuple[str, int]:
 async def _placed_order(client: TestClient, session: str) -> int:
     """Cart -> order over HTTP, the way a customer reaches the pay step."""
     slug = await _seed_product()
-    added = client.post(
+    added = with_cookies(client, {COOKIE: session}).post(
         f"{API}/cart/items",
-        cookies={COOKIE: session},
         json={"product_slug": slug, "size": "M", "quantity": 1},
     )
     assert added.status_code == 200, added.text
-    order = client.post(f"{API}/orders", cookies={COOKIE: session}, json=CHECKOUT)
+    order = with_cookies(client, {COOKIE: session}).post(f"{API}/orders", json=CHECKOUT)
     assert order.status_code == 201, order.text
     return order.json()["id"]
 
 
 def _initiate(client: TestClient, session: str, order_id: int):
-    return client.post(
-        f"{API}/payments/initiate", cookies={COOKIE: session}, json={"order_id": order_id}
+    return with_cookies(client, {COOKIE: session}).post(
+        f"{API}/payments/initiate", json={"order_id": order_id}
     )
 
 
@@ -234,9 +234,8 @@ async def test_customers_cannot_refund(
 ) -> None:
     session, _ = _register_and_login(client)
 
-    response = client.post(
+    response = with_cookies(client, {COOKIE: session}).post(
         f"{API}/payments/refunds",
-        cookies={COOKIE: session},
         json={"reference": "PAY-whatever"},
     )
 
@@ -300,18 +299,16 @@ async def test_initiate_verify_and_refund_flow(
     assert body["next_action"]["url"].startswith("https://provider.example/checkout/")
     assert gateway.requests[0].order_reference.startswith("ZD-")
 
-    verified = client.post(
+    verified = with_cookies(client, {COOKIE: session}).post(
         f"{API}/payments/verify",
-        cookies={COOKIE: session},
         json={"reference": body["payment_id"]},
     )
     assert verified.status_code == 200, verified.text
     assert verified.json()["status"] == "paid"
     assert verified.json()["next_action"] is None
 
-    refunded = client.post(
+    refunded = with_cookies(client, {COOKIE: _admin_token(user_id)}).post(
         f"{API}/payments/refunds",
-        cookies={COOKIE: _admin_token(user_id)},
         json={"reference": body["payment_id"], "reason": "Returned jersey"},
     )
     assert refunded.status_code == 200, refunded.text
@@ -330,9 +327,8 @@ async def test_a_payment_cannot_be_verified_by_another_user(
     order_id = await _placed_order(client, session)
     payment_id = _initiate(client, session, order_id).json()["payment_id"]
 
-    response = client.post(
+    response = with_cookies(client, {COOKIE: stranger}).post(
         f"{API}/payments/verify",
-        cookies={COOKIE: stranger},
         json={"reference": payment_id},
     )
 
@@ -347,11 +343,11 @@ async def test_payment_requests_are_validated(
 
     # An authenticated call with a malformed body fails validation, not auth.
     assert (
-        client.post(f"{API}/payments/initiate", cookies={COOKIE: session}, json={})
+        with_cookies(client, {COOKIE: session}).post(f"{API}/payments/initiate", json={})
     ).status_code == 422
     assert (
-        client.post(
-            f"{API}/payments/verify", cookies={COOKIE: session}, json={"reference": "x"}
+        with_cookies(client, {COOKIE: session}).post(
+            f"{API}/payments/verify", json={"reference": "x"}
         )
     ).status_code == 422
 
@@ -529,7 +525,7 @@ async def _payment_statuses(reference: str) -> list[str]:
 
 
 def _order_status(client: TestClient, session: str, order_id: int) -> str:
-    response = client.get(f"{API}/orders/{order_id}", cookies={COOKIE: session})
+    response = with_cookies(client, {COOKIE: session}).get(f"{API}/orders/{order_id}")
     assert response.status_code == 200, response.text
     return str(response.json()["status"])
 
@@ -697,9 +693,8 @@ async def test_a_webhook_and_a_verification_give_the_same_answer(
     payload, headers, _ = _notification(secret=paystack, reference=payment_id)
 
     delivered = _deliver(client, payload, headers)
-    verified = client.post(
+    verified = with_cookies(client, {COOKIE: session}).post(
         f"{API}/payments/verify",
-        cookies={COOKIE: session},
         json={"reference": payment_id},
     )
 

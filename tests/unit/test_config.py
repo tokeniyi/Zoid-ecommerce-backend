@@ -40,3 +40,60 @@ def test_cookie_name_matches_frontend_contract() -> None:
 def test_cors_origin_list_parsing() -> None:
     settings = Settings(_env_file=None, cors_origins="http://a.example, http://b.example")
     assert settings.cors_origin_list == ["http://a.example", "http://b.example"]
+
+
+# --- The JWT secret outside development -------------------------------------
+
+import pytest  # noqa: E402
+from pydantic import ValidationError  # noqa: E402
+
+_STRONG = "x" * 32
+
+
+@pytest.mark.parametrize("env", ["production", "staging"])
+@pytest.mark.parametrize(
+    "secret",
+    [
+        "",
+        "too-short",
+        "change-me-in-production",
+        "dev-insecure-secret-change-me-in-production-please",
+    ],
+)
+def test_outside_development_a_missing_or_weak_jwt_secret_refuses_to_load(
+    monkeypatch, env: str, secret: str
+) -> None:
+    monkeypatch.setenv("APP_ENV", env)
+    monkeypatch.setenv("JWT_SECRET", secret)
+
+    with pytest.raises(ValidationError, match="JWT_SECRET"):
+        Settings(_env_file=None)
+
+
+def test_outside_development_a_strong_jwt_secret_loads(monkeypatch) -> None:
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setenv("JWT_SECRET", _STRONG)
+
+    assert Settings(_env_file=None).jwt_secret == _STRONG
+
+
+@pytest.mark.parametrize("env", ["development", "test"])
+def test_development_and_test_may_run_without_a_jwt_secret(monkeypatch, env: str) -> None:
+    monkeypatch.setenv("APP_ENV", env)
+    monkeypatch.delenv("JWT_SECRET", raising=False)
+
+    assert Settings(_env_file=None).jwt_secret == ""
+
+
+def test_the_app_does_not_start_in_production_without_a_jwt_secret(monkeypatch) -> None:
+    from app.config import get_settings
+    from app.main import create_app
+
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setenv("JWT_SECRET", "")
+    get_settings.cache_clear()
+    try:
+        with pytest.raises(ValidationError, match="JWT_SECRET"):
+            create_app()
+    finally:
+        get_settings.cache_clear()

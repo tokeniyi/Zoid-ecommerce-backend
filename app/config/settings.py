@@ -15,8 +15,19 @@ from __future__ import annotations
 
 from functools import lru_cache
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+#: Environments that may run on the built-in development JWT secret.
+_DEVELOPMENT_ENVS = frozenset({"development", "test"})
+_MIN_JWT_SECRET_LENGTH = 32
+#: Placeholders that ship in this repository and so are public knowledge.
+_KNOWN_PLACEHOLDER_SECRETS = frozenset(
+    {
+        "change-me-in-production",
+        "dev-insecure-secret-change-me-in-production-please",
+    }
+)
 
 
 class Settings(BaseSettings):
@@ -94,6 +105,25 @@ class Settings(BaseSettings):
     # --- CORS (comma-separated origins) ---
     cors_origins: str = "http://localhost:3000"
     cors_allow_credentials: bool = True
+
+    @model_validator(mode="after")
+    def _require_real_jwt_secret_outside_development(self) -> Settings:
+        """Refuse to load, and so to start, with a forgeable session secret.
+
+        Outside development the session strategy would otherwise fall back to a
+        constant committed to this repository, and anyone could mint an admin
+        session with it.
+        """
+        if self.app_env.strip().lower() in _DEVELOPMENT_ENVS:
+            return self
+        secret = self.jwt_secret
+        if len(secret) < _MIN_JWT_SECRET_LENGTH or secret in _KNOWN_PLACEHOLDER_SECRETS:
+            raise ValueError(
+                f"JWT_SECRET must be set to a random value of at least "
+                f"{_MIN_JWT_SECRET_LENGTH} characters when APP_ENV is "
+                f"{self.app_env!r}."
+            )
+        return self
 
     @property
     def cors_origin_list(self) -> list[str]:

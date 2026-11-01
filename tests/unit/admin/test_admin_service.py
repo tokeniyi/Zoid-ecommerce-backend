@@ -358,6 +358,34 @@ async def test_creating_a_product_offers_the_sizes_with_stock_on_the_shelf() -> 
     assert await products.get_by_slug("new-jersey") is product
 
 
+async def test_creating_a_product_stores_every_detail_the_admin_gave() -> None:
+    service, products, _, _ = _service()
+    # Every value differs from its default, so a detail that is dropped shows.
+    details = {
+        "currency": "USD",
+        "tone": "Bold",
+        "style": "Retro",
+        "color": "Forest green",
+        "fit": "Relaxed",
+        "fit_note": "Size down for a snug fit",
+        "details": "Embroidered crest",
+        "delivery": "Ships in 3 days",
+    }
+
+    product = await service.create_product(
+        _command(**details, is_bestseller=True, is_special=True, is_active=False)
+    )
+
+    stored = await products.get_by_slug("new-jersey")
+    assert stored is product
+    for field, value in details.items():
+        assert getattr(stored, field) == value, field
+    assert stored.is_bestseller is True
+    assert stored.is_special is True
+    assert stored.is_active is False
+    assert stored.category.name == "Curated Jersey"
+
+
 async def test_a_product_may_keep_its_own_stock_codes() -> None:
     service, _, _, _ = _service()
 

@@ -7,6 +7,7 @@ payment provider is involved anywhere.
 
 from __future__ import annotations
 
+import re
 from decimal import Decimal
 
 import pytest
@@ -207,6 +208,58 @@ async def test_valid_cart_becomes_pending_payment_order() -> None:
     assert product.variants[0].inventory.reserved == 2
     # ...and the cart has been consumed.
     assert await carts.get_by_user_id(USER_ID) is None
+
+
+async def test_order_keeps_the_carts_currency_and_the_buyers_details() -> None:
+    cart = _cart(
+        [
+            CartItem(
+                id=1,
+                variant_id=11,
+                product_slug="alpha",
+                product_name="Alpha Jersey",
+                size="M",
+                quantity=1,
+                unit_price=PRICE,
+                image="/cart-thumb.jpg",
+                currency="USD",
+            )
+        ]
+    )
+    cart.currency = "USD"  # not the "NGN" default, so a dropped value shows
+    service, _, _, _ = _service(cart=cart)
+
+    order = await service.create_from_cart(
+        user_id=USER_ID, checkout=_checkout(notes="Leave at the gate")
+    )
+
+    assert order.currency == "USD"
+    assert order.contact_name == "Ada Zoid"
+    assert order.contact_email == "ada@example.com"
+    assert order.contact_phone == "+234 800 000 0000"
+    assert order.address_line == "12 Concrete Road"
+    assert order.city_state == "Lagos State"
+    assert order.notes == "Leave at the gate"
+    (line,) = order.items
+    assert line.currency == "USD"
+    # The catalog's current picture wins over the one saved in the cart.
+    assert line.image == "/front.jpg"
+
+
+async def test_an_order_line_falls_back_to_the_carts_image() -> None:
+    product = _product()
+    product.images = []
+    cart = _cart()
+    cart.items[0].image = "/cart-thumb.jpg"
+    service, _, _, _ = _service(cart=cart, product=product)
+
+    order = await service.create_from_cart(user_id=USER_ID, checkout=_checkout())
+
+    assert order.items[0].image == "/cart-thumb.jpg"
+
+
+def test_order_references_are_prefixed_uppercase_hex() -> None:
+    assert re.fullmatch(r"ZD-[0-9A-F]{8}", new_order_reference())
 
 
 async def test_order_reference_is_unique() -> None:

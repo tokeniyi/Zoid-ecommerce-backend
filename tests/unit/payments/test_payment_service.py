@@ -7,6 +7,7 @@ providers, because nothing in the service is provider-aware.
 
 from __future__ import annotations
 
+import re
 from decimal import Decimal
 
 import pytest
@@ -15,7 +16,11 @@ from app.domains.orders.domain.entities import Order, OrderItem
 from app.domains.orders.domain.enums import OrderStatus
 from app.domains.orders.domain.repositories import AbstractOrderRepository
 from app.domains.payments.application.notifications import PaidOrderNotifier
-from app.domains.payments.application.service import PaymentService
+from app.domains.payments.application.service import (
+    PaymentService,
+    new_payment_reference,
+    new_refund_reference,
+)
 from app.domains.payments.domain.entities import Refund, Transaction, WebhookEvent
 from app.domains.payments.domain.enums import (
     PaymentAction,
@@ -695,6 +700,72 @@ async def test_refund_of_an_unknown_reference_is_not_found() -> None:
 
     with pytest.raises(NotFoundError):
         await service.refund(reference="PAY-nope")
+
+
+async def test_a_refund_names_the_payment_it_is_for() -> None:
+    service, _, gateway = _service()
+    transaction, _ = await service.initiate(user_id=USER_ID, order_id=10)
+    await service.verify(user_id=USER_ID, reference=transaction.reference)
+
+    await service.refund(reference=transaction.reference)
+
+    # The provider is told which payment to refund; a missing reference would
+    # be refused (or worse, guessed) on their side.
+    assert gateway.refunds[0].transaction_reference == transaction.reference
+
+
+async def test_a_full_refund_keeps_the_providers_refund_reference() -> None:
+    service, _, _ = _service()
+    transaction, _ = await service.initiate(user_id=USER_ID, order_id=10)
+    await service.verify(user_id=USER_ID, reference=transaction.reference)
+
+    settled, _ = await service.refund(reference=transaction.reference)
+
+    # What support quotes to the provider when a customer asks where the money is.
+    assert settled.provider_reference == "rf-1"
+
+
+async def test_the_refund_ledger_records_who_refunded_and_their_reference() -> None:
+    ledger = InMemoryRefundRepository()
+    service, _, _ = _service(refunds=ledger)
+    transaction, _ = await service.initiate(user_id=USER_ID, order_id=10)
+    await service.verify(user_id=USER_ID, reference=transaction.reference)
+
+    await service.refund(reference=transaction.reference, amount=Decimal("1000.00"))
+
+    (entry,) = await ledger.list_by_transaction_id(transaction.id)
+    assert entry.provider == "fake"
+    assert entry.provider_refund_reference == "rf-1"
+    assert entry.currency == "NGN"
+
+
+async def test_verification_keeps_the_reference_the_provider_settled_under() -> None:
+    gateway = FakeGateway(
+        verification=PaymentVerification(
+            success=True,
+            status=PaymentStatus.PAID,
+            provider_reference="prov-settled",
+            amount=AMOUNT,
+        )
+    )
+    service, _, _ = _service(gateway=gateway)
+    transaction, _ = await service.initiate(user_id=USER_ID, order_id=10)
+
+    settled, _ = await service.verify(user_id=USER_ID, reference=transaction.reference)
+
+    # Initiation stored "prov-77"; the settled reference must replace it.
+    assert settled.provider_reference == "prov-settled"
+
+
+# --- references -------------------------------------------------------------
+
+
+def test_payment_references_are_prefixed_uppercase_hex() -> None:
+    assert re.fullmatch(r"PAY-[0-9A-F]{12}", new_payment_reference())
+
+
+def test_refund_references_are_prefixed_uppercase_hex() -> None:
+    assert re.fullmatch(r"RFD-[0-9A-F]{12}", new_refund_reference())
 
 
 # --- provider swap-ability --------------------------------------------------

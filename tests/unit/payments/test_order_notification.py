@@ -16,6 +16,7 @@ tests would read exactly the same for a provider that does not exist yet.
 
 from __future__ import annotations
 
+from datetime import datetime
 from decimal import Decimal
 
 import pytest
@@ -177,6 +178,64 @@ def test_optional_order_details_are_said_absent_rather_than_dropped() -> None:
 
     assert "Notes: none" in message.text_body
     assert "Leave with the guard" not in message.text_body
+
+
+GOLDEN_BODY = """Order ZD-ABC12345 has been paid.
+
+Order
+  Number:  ZD-ABC12345
+  Status:  PAID
+  Placed:  2026-10-31 14:05
+
+Customer
+  Name:  Ada Zoid
+  Email: ada@example.com
+  Phone: +234 800 000 0000
+
+Items
+  2 x Alpha Jersey (size M) at 21,000.00 NGN = 42,000.00 NGN
+  1 x Beta Jersey (size L) at 18,500.50 NGN = 18,500.50 NGN
+
+Total  60,500.50 NGN
+
+Delivery
+  Address: 12 Concrete Road
+  City/State: Lagos State
+  Notes: Leave with the guard
+
+Payment
+  Reference: PAY-AAAA1111
+  Amount:    60,500.50 NGN
+  Provider:  fake
+  Provider reference: prov-77"""
+
+
+def test_the_email_body_reads_exactly_as_the_owner_expects() -> None:
+    """One known order, the whole body: labels, amounts, the date and the layout."""
+    order = _order()
+    order.created_at = datetime(2026, 10, 31, 14, 5)
+
+    message = build_order_notification(order, _payment(), owner_email=OWNER)
+
+    assert message.text_body == GOLDEN_BODY
+    assert message.subject == "Paid order ZD-ABC12345 - 60,500.50 NGN"
+
+
+def test_details_nobody_recorded_are_named_as_missing() -> None:
+    order = _order(notes=None)
+    order.created_at = None
+    order.contact_phone = ""
+    order.city_state = ""
+    payment = _payment()
+    payment.provider_reference = None
+
+    body = build_order_notification(order, payment, owner_email=OWNER).text_body
+
+    assert "  Placed:  not recorded" in body.splitlines()
+    assert "  Phone: not given" in body.splitlines()
+    assert "  City/State: not given" in body.splitlines()
+    assert "  Notes: none" in body.splitlines()
+    assert "  Provider reference: not reported" in body.splitlines()
 
 
 # --- whether it is sent -------------------------------------------------------

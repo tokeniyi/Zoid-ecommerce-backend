@@ -183,6 +183,17 @@ async def test_a_signed_event_pays_for_the_order_it_names() -> None:
     assert harness.webhook.calls == [(PAYLOAD, {})]
 
 
+async def test_a_signed_event_keeps_the_providers_reference_and_ours() -> None:
+    harness = await _harness()
+
+    receipt, _ = await harness.receive()
+
+    # Initiation stored "prov-77"; the event's own reference must replace it.
+    assert harness.transaction.provider_reference == "prov-1"
+    # The receipt says which of our payments the event was about.
+    assert receipt.reference == harness.transaction.reference
+
+
 async def test_the_event_is_recorded_even_when_it_names_nothing_of_ours() -> None:
     harness = await _harness(reference="PAY-somebody-elses")
 

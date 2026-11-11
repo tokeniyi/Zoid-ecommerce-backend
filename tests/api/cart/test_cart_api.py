@@ -196,3 +196,90 @@ async def test_merge_folds_guest_cart_into_user(client: TestClient) -> None:
     # The user's cart now durably holds the merged line.
     mine = client.get(f"{API}/cart", cookies={COOKIE: session})
     assert mine.json()["count"] == 3
+
+
+# ── personalisation ─────────────────────────────────────────────────────
+
+
+def _add_custom(
+    client: TestClient, slug: str, text: str, *, cookie: str | None = None, qty: int = 1
+):
+    cookies = {GUEST_CART_COOKIE: cookie} if cookie else None
+    return client.post(
+        f"{API}/cart/items",
+        json={"product_slug": slug, "size": "M", "quantity": qty, "customization": text},
+        cookies=cookies,
+    )
+
+
+async def test_personalised_lines_are_kept_apart_until_the_text_matches(
+    client: TestClient,
+) -> None:
+    slug = await _product_slug()
+
+    first = _add_custom(client, slug, "Name: EDDY, #10")
+    token = first.cookies.get(GUEST_CART_COOKIE)
+    assert first.json()["items"][0]["customization"] == "Name: EDDY, #10"
+
+    _add_custom(client, slug, "Name: ADA, #7", cookie=token)
+    _add(client, slug, cookie=token)  # no text at all
+    same = _add_custom(client, slug, "  name: eddy, #10 ", cookie=token, qty=2)
+
+    body = same.json()
+    assert len(body["items"]) == 3
+    assert body["count"] == 5
+    by_text = {item["customization"]: item["quantity"] for item in body["items"]}
+    assert by_text == {"Name: EDDY, #10": 3, "Name: ADA, #7": 1, "": 1}
+
+
+async def test_plain_adds_report_an_empty_personalisation(client: TestClient) -> None:
+    slug = await _product_slug()
+    body = _add(client, slug).json()
+    assert body["items"][0]["customization"] == ""
+
+
+async def test_overlong_personalisation_is_rejected(client: TestClient) -> None:
+    slug = await _product_slug()
+    assert _add_custom(client, slug, "x" * 101).status_code == 422
+
+
+async def test_each_line_can_be_edited_and_removed_on_its_own(client: TestClient) -> None:
+    slug = await _product_slug()
+    first = _add_custom(client, slug, "Name: EDDY, #10")
+    token = first.cookies.get(GUEST_CART_COOKIE)
+    both = _add(client, slug, cookie=token).json()
+    personalised = next(i for i in both["items"] if i["customization"])
+    plain = next(i for i in both["items"] if not i["customization"])
+
+    bumped = client.patch(
+        f"{API}/cart/items/{personalised['id']}",
+        json={"quantity": 4},
+        cookies={GUEST_CART_COOKIE: token},
+    ).json()
+    assert {i["customization"]: i["quantity"] for i in bumped["items"]} == {
+        "Name: EDDY, #10": 4, "": 1,
+    }
+
+    removed = client.delete(
+        f"{API}/cart/items/{plain['id']}", cookies={GUEST_CART_COOKIE: token}
+    ).json()
+    assert [i["customization"] for i in removed["items"]] == ["Name: EDDY, #10"]
+
+
+async def test_merging_a_guest_cart_keeps_personalisation_apart(client: TestClient) -> None:
+    slug = await _product_slug()
+    guest = _add_custom(client, slug, "Name: EDDY, #10").cookies.get(GUEST_CART_COOKIE)
+    session = _register_and_login(client)
+    # The shopper already has a plain one and a matching personalised one.
+    client.post(f"{API}/cart/items", cookies={COOKIE: session},
+                json={"product_slug": slug, "size": "M", "quantity": 1})
+    client.post(f"{API}/cart/items", cookies={COOKIE: session},
+                json={"product_slug": slug, "size": "M", "quantity": 1,
+                      "customization": "NAME: EDDY, #10"})
+
+    merged = client.post(
+        f"{API}/cart/merge", cookies={COOKIE: session, GUEST_CART_COOKIE: guest}
+    ).json()
+
+    quantities = {item["customization"].casefold(): item["quantity"] for item in merged["items"]}
+    assert quantities == {"": 1, "name: eddy, #10": 2}

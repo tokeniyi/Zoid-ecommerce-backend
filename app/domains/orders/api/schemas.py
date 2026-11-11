@@ -31,6 +31,7 @@ class OrderItemResponse(BaseModel):
     line_total: str
     image: str
     currency: str
+    customization: str
 
 
 class OrderResponse(BaseModel):
@@ -72,6 +73,7 @@ def serialize_item(item: OrderItem) -> OrderItemResponse:
         line_total=serialize_money(item.line_total),
         image=item.image,
         currency=item.currency,
+        customization=item.customization,
     )
 
 

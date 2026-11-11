@@ -95,6 +95,7 @@ class OrderService:
                     unit_price=product.price,
                     currency=cart.currency,
                     image=product.primary_image or line.image,
+                    customization=line.customization,
                 )
             )
 

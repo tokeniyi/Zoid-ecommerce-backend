@@ -85,7 +85,7 @@ request — never a caller-supplied cart id — so cross-cart access is impossib
 | Method | Path | Auth | Notes |
 | --- | --- | --- | --- |
 | GET | `/cart` | none / session | The caller's cart; issues the guest cookie for anonymous carts. |
-| POST | `/cart/items` | none / session | Add `{product_slug, size, quantity}`. |
+| POST | `/cart/items` | none / session | Add `{product_slug, size, quantity, customization?}`. `customization` is optional free text (max 100 chars, e.g. `"Name: EDDY, #10"`). Lines merge only when product, size **and** text (trimmed, case-insensitive) all match. |
 | PATCH | `/cart/items/{item_id}` | none / session | Change a line's quantity. |
 | DELETE | `/cart/items/{item_id}` | none / session | Remove a line. |
 | POST | `/cart/merge` | session | Fold a guest cart into the now-authenticated user's cart and clear the guest cookie. |

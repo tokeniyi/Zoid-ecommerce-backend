@@ -223,3 +223,20 @@ async def test_a_successful_checkout_reserves_exactly_what_was_ordered(
     assert _checkout(client, session).status_code == 201
 
     assert await _reserved(slug) == 3
+
+
+async def test_personalisation_travels_from_the_bag_to_the_order(client: TestClient) -> None:
+    slug = await _seed_product()
+    session = _register_and_login(client)
+    for text in ("Name: EDDY, #10", ""):
+        client.post(
+            f"{API}/cart/items",
+            cookies={COOKIE: session},
+            json={"product_slug": slug, "size": "M", "quantity": 1, "customization": text},
+        )
+
+    order = _checkout(client, session).json()
+
+    assert {line["customization"] for line in order["items"]} == {"Name: EDDY, #10", ""}
+    fetched = client.get(f"{API}/orders/{order['id']}", cookies={COOKIE: session}).json()
+    assert {line["customization"] for line in fetched["items"]} == {"Name: EDDY, #10", ""}

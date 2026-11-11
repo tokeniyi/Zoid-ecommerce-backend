@@ -36,6 +36,10 @@ class OrderItemRow(Base):
         String(3), nullable=False, default="NGN", server_default=text("'NGN'")
     )
 
+    customization: Mapped[str] = mapped_column(
+        String(100), nullable=False, default="", server_default=text("''")
+    )
+
     order: Mapped[OrderRow] = relationship(back_populates="items")
 
     def __repr__(self) -> str:  # pragma: no cover - debugging aid

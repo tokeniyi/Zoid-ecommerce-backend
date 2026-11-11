@@ -33,6 +33,10 @@ class CartItemRow(Base):
     currency: Mapped[str] = mapped_column(
         String(3), nullable=False, default="NGN", server_default=text("'NGN'")
     )
+    # Personalisation text; part of the line's identity (see CartItem.line_key).
+    customization: Mapped[str] = mapped_column(
+        String(100), nullable=False, default="", server_default=text("''")
+    )
 
     cart: Mapped[CartRow] = relationship(back_populates="items")
 

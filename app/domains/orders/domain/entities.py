@@ -32,6 +32,8 @@ class OrderItem:
     unit_price: Decimal
     currency: str = "NGN"
     image: str = ""
+    #: Personalisation copied from the cart line ("" when none).
+    customization: str = ""
 
     @property
     def line_total(self) -> Decimal:

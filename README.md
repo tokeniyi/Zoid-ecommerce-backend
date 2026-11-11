@@ -76,6 +76,26 @@ uv run uvicorn app.main:app --reload
 - OpenAPI contract: `http://localhost:8000/openapi.json`
 - Health probe: `GET http://localhost:8000/health`
 
+## First-time data: catalog and admin
+
+A fresh database is empty and has no administrator. Two operator commands fix that
+(run after `alembic upgrade head`; both are safe to run again):
+
+```powershell
+uv run python -m app.cli.seed_catalog                 # load the storefront's 21 products
+uv run python -m app.cli.seed_catalog --update        # refresh details/prices (never stock)
+uv run python -m app.cli.seed_catalog --image-base-url https://cdn.example.com
+
+uv run python -m app.cli.create_admin --email owner@yourdomain.com --name "Owner"
+```
+
+`create_admin` asks for the password (hidden) or reads `ZOID_ADMIN_PASSWORD`; it is
+never a command-line argument. For an email that already has an account it promotes
+that user to admin and leaves their password alone. The seed identifies products by
+slug, so re-running never duplicates anything and never overwrites live stock.
+Product image paths in the seed are the storefront's own (`/manus-storage/...`,
+`/jerseys/...`); use `--image-base-url` once the images are hosted elsewhere.
+
 ## Run migrations
 
 Database schema is managed with **Alembic** (config in `alembic.ini`,

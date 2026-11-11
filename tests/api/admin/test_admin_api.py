@@ -74,7 +74,7 @@ ADMIN_OPERATIONS = _admin_operations()
 
 def _concrete(path: str) -> str:
     """A path template with something plausible in its holes."""
-    return path.replace("{product_id}", "1").replace("{order_id}", "1")
+    return path.replace("{product_id}", "1").replace("{order_id}", "1").replace("{story_id}", "1")
 
 
 def _body_for(method: str) -> dict[str, Any] | None:
@@ -226,6 +226,8 @@ def test_the_admin_surface_is_exactly_what_was_promised() -> None:
     assert {(method, path) for method, path in ADMIN_OPERATIONS} == {
         ("GET", f"{API}/admin/dashboard"),
         ("GET", f"{API}/admin/analytics"),
+        ("GET", f"{API}/admin/archives"),
+        ("PATCH", f"{API}/admin/archives/{{story_id}}/moderation"),
         ("GET", f"{API}/admin/products"),
         ("POST", f"{API}/admin/products"),
         ("POST", f"{API}/admin/products/images"),

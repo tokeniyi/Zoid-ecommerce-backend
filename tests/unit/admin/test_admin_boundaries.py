@@ -122,6 +122,8 @@ def test_every_admin_route_sits_under_the_guarded_prefix() -> None:
     assert paths == {
         "/admin/dashboard",
         "/admin/analytics",
+        "/admin/archives",
+        "/admin/archives/{story_id}/moderation",
         "/admin/products",
         "/admin/products/images",
         "/admin/products/{product_id}",

@@ -14,6 +14,7 @@ from fastapi import Depends
 from app.config import get_settings
 from app.domains.admin.application.images import ProductImageService
 from app.domains.admin.application.service import AdminService
+from app.domains.archives.application.service import ArchiveService
 from app.domains.auth.application.service import AuthService
 from app.domains.cart.application.service import CartService
 from app.domains.delivery.application.service import DeliveryService
@@ -128,6 +129,13 @@ async def get_delivery_service(
 ) -> DeliveryService:
     """The delivery quoting use-case orchestrator."""
     return DeliveryService(rates=uow.delivery_rates)
+
+
+async def get_archive_service(
+    uow: AbstractUnitOfWork = Depends(get_unit_of_work),
+) -> ArchiveService:
+    """Archive stories: submission, reading and moderation."""
+    return ArchiveService(stories=uow.archive_stories)
 
 
 async def get_wishlist_service(

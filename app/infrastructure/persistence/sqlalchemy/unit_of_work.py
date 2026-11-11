@@ -14,6 +14,7 @@ from typing import Self
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from app.domains.archives.domain.repositories import AbstractStoryRepository
 from app.domains.auth.domain.repositories import AbstractCredentialsRepository
 from app.domains.cart.domain.repositories import AbstractCartRepository
 from app.domains.delivery.domain.repositories import AbstractDeliveryRateRepository
@@ -37,6 +38,7 @@ from app.infrastructure.persistence.sqlalchemy.repositories import (
     SqlOrderRepository,
     SqlProductRepository,
     SqlRefundRepository,
+    SqlStoryRepository,
     SqlTransactionRepository,
     SqlUserRepository,
     SqlWebhookEventRepository,
@@ -61,6 +63,7 @@ class AbstractUnitOfWork:
     wishlists: AbstractWishlistRepository
     orders: AbstractOrderRepository
     delivery_rates: AbstractDeliveryRateRepository
+    archive_stories: AbstractStoryRepository
     transactions: AbstractTransactionRepository
     refunds: AbstractRefundRepository
     webhook_events: AbstractWebhookEventRepository
@@ -83,6 +86,7 @@ class SqlAlchemyUnitOfWork(AbstractUnitOfWork):
         self.wishlists = SqlWishlistRepository(self.session)
         self.orders = SqlOrderRepository(self.session)
         self.delivery_rates = SqlDeliveryRateRepository(self.session)
+        self.archive_stories = SqlStoryRepository(self.session)
         self.transactions = SqlTransactionRepository(self.session)
         self.refunds = SqlRefundRepository(self.session)
         self.webhook_events = SqlWebhookEventRepository(self.session)

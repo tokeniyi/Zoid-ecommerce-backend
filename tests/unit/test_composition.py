@@ -53,6 +53,7 @@ ANCHOR_OPERATIONS: frozenset[tuple[str, str]] = frozenset(
 MOUNTED_DOMAINS: frozenset[str] = frozenset(
     {
         "admin",
+        "archives",
         "auth",
         "cart",
         "categories",

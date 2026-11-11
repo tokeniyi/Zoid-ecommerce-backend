@@ -53,13 +53,26 @@ from app.domains.admin.application.service import (
     RestockCommand,
     StockAdjustment,
 )
+from app.domains.archives.api.schemas import (
+    AdminStoryListResponse,
+    AdminStoryResponse,
+    ModerationRequest,
+    serialize_admin,
+    serialize_admin_page,
+)
+from app.domains.archives.application.service import ArchiveService
+from app.domains.archives.domain.entities import StoryStatus
 from app.domains.orders.api.schemas import OrderResponse, serialize_order
 from app.domains.orders.domain.criteria import OrderCriteria
 from app.domains.orders.domain.enums import FulfillmentStatus, OrderPaymentStatus
 from app.domains.products.api.router import get_criteria
 from app.domains.products.domain.entities import StockStatus
 from app.domains.products.domain.search import ProductCriteria
-from app.infrastructure.container import get_admin_service, get_product_image_service
+from app.infrastructure.container import (
+    get_admin_service,
+    get_archive_service,
+    get_product_image_service,
+)
 from app.security.authorization import require_admin
 from app.shared.exceptions import ValidationError
 from app.shared.pagination import PaginationParams
@@ -319,6 +332,28 @@ async def update_fulfillment(
         order_id, FulfillmentUpdate(status=body.status, terminal=body.terminal)
     )
     return serialize_order(order)
+
+
+@router.get("/archives", response_model=AdminStoryListResponse)
+async def list_archive_stories(
+    service: Annotated[ArchiveService, Depends(get_archive_service)],
+    params: Annotated[PaginationParams, Depends(get_pagination)],
+    story_status: Annotated[
+        StoryStatus | None, Query(alias="status", description="pending, approved or rejected.")
+    ] = None,
+) -> AdminStoryListResponse:
+    """Every submitted story, newest first. Use ``status=pending`` for the review queue."""
+    return serialize_admin_page(await service.list_for_moderation(params, status=story_status))
+
+
+@router.patch("/archives/{story_id}/moderation", response_model=AdminStoryResponse)
+async def moderate_archive_story(
+    story_id: int,
+    body: ModerationRequest,
+    service: Annotated[ArchiveService, Depends(get_archive_service)],
+) -> AdminStoryResponse:
+    """Approve (publish) or reject a story, with an optional private note."""
+    return serialize_admin(await service.moderate(story_id, body.status, body.note))
 
 
 @router.get("/users", response_model=AdminUserListResponse)

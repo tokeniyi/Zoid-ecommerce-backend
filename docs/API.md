@@ -122,6 +122,26 @@ state. With no matching rate there is no price, never a guess. Rates are loaded 
 `python -m app.cli.seed_delivery` (see the README); with an empty table every place
 answers `support_required`.
 
+## Archives (community stories)
+
+Customers share football memories; nothing a stranger typed appears publicly until
+the shop approves it. Reading is public (approved stories only, newest first);
+writing needs a session.
+
+| Method | Path | Auth | Notes |
+| --- | --- | --- | --- |
+| GET | `/archives` | none | Approved stories, paged; optional `category`. Responses carry no owner id, status or moderation note. |
+| GET | `/archives/{id}` | none | One approved story; pending and rejected ones are `404`. |
+| GET | `/archives/mine` | session | The caller's own stories in every status (`pending` / `approved` / `rejected`). |
+| POST | `/archives` | session | Submit `{title, author, content, location?, year?, category?, image_url?}`. It starts `pending`. `content` 10–5000 chars; `image_url` must be an http(s) address or a site path. |
+| PATCH | `/archives/{id}` | session (owner) | Edit your own story. **Any edit sends it back to `pending`**, so what the shop approved is what is shown. |
+| DELETE | `/archives/{id}` | session (owner) | Delete your own story (`204`); someone else's is `404`. |
+
+Moderation (admin, see below): `GET /admin/archives?status=pending` is the review
+queue and `PATCH /admin/archives/{id}/moderation` with `{status: approved|rejected,
+note?}` decides it. The note is private to the shop. Likes and comments, which the
+storefront prototype shows, are not part of the API yet.
+
 ## Orders
 
 Checkout is authenticated and reads the caller's **server-side** cart; every amount
@@ -174,4 +194,6 @@ directly — bypassing any frontend — gets 401 (no session) or 403 (wrong role
 | PATCH | `/admin/products/{product_id}/stock` | admin | Correct a size's stock **up or down**: `{size, delta}` (`-3` removes three) or `{size, set_to}` (a stock-take). Never below the units already reserved for customers' orders (`422`). |
 | GET | `/admin/orders` | admin | The order book, newest first. Filters: `payment_status`, `fulfillment_status`, `delivery_option`, `q` (reference / name / email / phone), `date_from`, `date_to`. `total` counts what matched. |
 | PATCH | `/admin/orders/{order_id}/fulfillment` | admin | Body `{status?, terminal?}`: move a **paid** order between `processing` / `in_transit` / `delivered` (any stage may be corrected), and/or confirm the GUO terminal of a pickup order. An unpaid order is `409`; an empty body is `422`. Nothing is saved unless every part is accepted. |
+| GET | `/admin/archives` | admin | Every submitted story with owner and moderation note; filter `status=pending|approved|rejected`. |
+| PATCH | `/admin/archives/{story_id}/moderation` | admin | `{status: approved|rejected, note?}`: publish or reject a story. Cannot be set back to pending. |
 | GET | `/admin/users` | admin | The customer list. |

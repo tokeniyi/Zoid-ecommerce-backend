@@ -9,6 +9,7 @@ from __future__ import annotations
 from fastapi import APIRouter
 
 from app.domains.admin.api.router import router as admin_router
+from app.domains.archives.api.router import router as archives_router
 from app.domains.auth.api.router import router as auth_router
 from app.domains.cart.api.router import router as cart_router
 from app.domains.delivery.api.router import router as delivery_router
@@ -20,6 +21,7 @@ from app.domains.wishlist.api.router import router as wishlist_router
 
 api_router = APIRouter()
 api_router.include_router(auth_router)
+api_router.include_router(archives_router)
 api_router.include_router(cart_router)
 api_router.include_router(users_router)
 api_router.include_router(products_router)

@@ -1,5 +1,8 @@
 """SQLAlchemy repository implementations (infrastructure layer)."""
 
+from app.infrastructure.persistence.sqlalchemy.repositories.archive_story import (
+    SqlStoryRepository,
+)
 from app.infrastructure.persistence.sqlalchemy.repositories.cart import (
     SqlCartRepository,
 )
@@ -35,6 +38,7 @@ from app.infrastructure.persistence.sqlalchemy.repositories.wishlist import (
 )
 
 __all__ = [
+    "SqlStoryRepository",
     "SqlCartRepository",
     "SqlCategoryRepository",
     "SqlCredentialsRepository",

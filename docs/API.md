@@ -132,8 +132,15 @@ charged per unit (`CUSTOMIZATION_FEE`, default 2,000) on products whose style is
 | Method | Path | Auth | Notes |
 | --- | --- | --- | --- |
 | POST | `/orders` | session | Check out the cart into a new order (`201`). Body: `contact_name`, `contact_email`, `contact_phone`, `delivery` (see above), optional `notes`. A destination that is not priced (unserved place, `enquiry`) is refused with `422` before any stock is reserved. New orders start `PENDING_PAYMENT`. |
-| GET | `/orders` | session | The caller's orders, newest first. |
+| GET | `/orders` | session | The caller's orders, newest first, **with their lines** (full order objects), so a profile screen needs one request, not one per order. |
 | GET | `/orders/{order_id}` | session | One of the caller's orders (someone else's is 404). |
+
+Every order carries two independent statuses. `payment_status` (`pending` /
+`paid` / `cancelled`) moves only through the payments workflow, and
+`payment_reference` / `paid_at` record the payment that settled it.
+`fulfillment_status` (`processing` / `in_transit` / `delivered`) is the shop's
+progress on a paid order and moves only through the admin endpoint below, so a
+late payment notification can never collide with a parcel in transit.
 
 ## Payments
 
@@ -161,4 +168,5 @@ directly — bypassing any frontend — gets 401 (no session) or 403 (wrong role
 | PATCH | `/admin/products/{product_id}` | admin | Edit a product (including reversible `is_active`). |
 | POST | `/admin/products/{product_id}/stock` | admin | Restock a variant. |
 | GET | `/admin/orders` | admin | The order book. |
+| PATCH | `/admin/orders/{order_id}/fulfillment` | admin | Body `{status?, terminal?}`: move a **paid** order between `processing` / `in_transit` / `delivered` (any stage may be corrected), and/or confirm the GUO terminal of a pickup order. An unpaid order is `409`; an empty body is `422`. Nothing is saved unless every part is accepted. |
 | GET | `/admin/users` | admin | The customer list. |

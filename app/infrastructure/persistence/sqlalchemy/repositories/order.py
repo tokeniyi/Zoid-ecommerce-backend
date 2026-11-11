@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.domains.orders.domain.entities import NEW_ITEM_ID, Order, OrderItem
-from app.domains.orders.domain.enums import OrderStatus
+from app.domains.orders.domain.enums import FulfillmentStatus, OrderStatus
 from app.domains.orders.domain.repositories import AbstractOrderRepository
 from app.infrastructure.persistence.sqlalchemy.models.order import OrderRow
 from app.infrastructure.persistence.sqlalchemy.models.order_item import OrderItemRow
@@ -47,6 +47,9 @@ class SqlOrderRepository(AbstractOrderRepository):
             delivery_terminal=order.delivery_terminal,
             delivery_terminal_pending=order.delivery_terminal_pending,
             delivery_note=order.delivery_note,
+            fulfillment_status=order.fulfillment_status.value,
+            payment_reference=order.payment_reference,
+            paid_at=order.paid_at,
         )
         for item in order.items:
             row.items.append(self._to_row(item))
@@ -98,6 +101,13 @@ class SqlOrderRepository(AbstractOrderRepository):
             raise LookupError(f"Order {order.id} no longer exists")
         row.status = order.status.value
         row.notes = order.notes
+        row.fulfillment_status = order.fulfillment_status.value
+        row.payment_reference = order.payment_reference
+        row.paid_at = order.paid_at
+        # A pickup terminal can be confirmed (or corrected) by the shop.
+        row.delivery_terminal = order.delivery_terminal
+        row.delivery_terminal_pending = order.delivery_terminal_pending
+        row.address_line = order.address_line
         await self._session.flush()
         return self._to_domain(await self._load(row.id))
 
@@ -153,6 +163,9 @@ class SqlOrderRepository(AbstractOrderRepository):
             delivery_terminal=row.delivery_terminal,
             delivery_terminal_pending=row.delivery_terminal_pending,
             delivery_note=row.delivery_note,
+            fulfillment_status=FulfillmentStatus(row.fulfillment_status),
+            payment_reference=row.payment_reference,
+            paid_at=row.paid_at,
             items=[
                 OrderItem(
                     id=item.id,

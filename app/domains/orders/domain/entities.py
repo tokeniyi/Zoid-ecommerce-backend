@@ -9,10 +9,10 @@ status transitions live with the workflows that trigger them.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from decimal import Decimal
 
-from app.domains.orders.domain.enums import OrderStatus
+from app.domains.orders.domain.enums import FulfillmentStatus, OrderPaymentStatus, OrderStatus
 from app.shared.exceptions import ConflictError, ValidationError
 
 #: Sentinel id for lines that have not been persisted yet.
@@ -85,6 +85,11 @@ class Order:
     delivery_terminal: str = ""
     delivery_terminal_pending: bool = False
     delivery_note: str = ""
+    #: The parcel's progress; only meaningful once the order is paid.
+    fulfillment_status: FulfillmentStatus = FulfillmentStatus.PROCESSING
+    #: The reference of the payment that settled this order, once there is one.
+    payment_reference: str | None = None
+    paid_at: datetime | None = None
 
     @property
     def subtotal(self) -> Decimal:
@@ -113,10 +118,49 @@ class Order:
     def is_pending_payment(self) -> bool:
         return self.status is OrderStatus.PENDING_PAYMENT
 
+    @property
+    def payment_status(self) -> OrderPaymentStatus:
+        """Paid, still waiting, or cancelled — the payment side, on its own."""
+        if self.status is OrderStatus.PENDING_PAYMENT:
+            return OrderPaymentStatus.PENDING
+        if self.status is OrderStatus.CANCELLED:
+            return OrderPaymentStatus.CANCELLED
+        return OrderPaymentStatus.PAID
+
+    def set_fulfillment(self, status: FulfillmentStatus) -> bool:
+        """Move the parcel along. Returns True when this changed anything.
+
+        Only a paid order can be fulfilled: the shop does not ship what nobody has
+        paid for. Any stage may be corrected to any other (the shop sometimes
+        taps the wrong one), so the only rule here is about payment.
+        """
+        if self.payment_status is not OrderPaymentStatus.PAID:
+            raise ConflictError(
+                f"An order that is {self.payment_status.value} cannot be fulfilled"
+            )
+        if self.fulfillment_status is status:
+            return False
+        self.fulfillment_status = status
+        return True
+
+    def confirm_terminal(self, terminal: str) -> None:
+        """Settle which GUO terminal a pickup order goes to.
+
+        Customers may name a terminal the shop has not verified; the shop then
+        confirms (or corrects) it here.
+        """
+        if self.delivery_option != "pickup":
+            raise ConflictError("Only a pickup order has a terminal to confirm")
+        if not terminal.strip():
+            raise ValidationError("A terminal name is required")
+        self.delivery_terminal = terminal.strip()
+        self.delivery_terminal_pending = False
+        self.address_line = f"GUO terminal pickup: {self.delivery_terminal}"
+
     def find_item(self, item_id: int) -> OrderItem | None:
         return next((item for item in self.items if item.id == item_id), None)
 
-    def mark_paid(self) -> bool:
+    def mark_paid(self, reference: str | None = None, at: datetime | None = None) -> bool:
         """Record a confirmed payment. Returns True when this changed the order.
 
         Only a payment the payments domain has confirmed may move an order out of
@@ -130,6 +174,8 @@ class Order:
                 f"An order that is {self.status.value} cannot be paid"
             )
         self.status = OrderStatus.PAID
+        self.payment_reference = reference
+        self.paid_at = at or datetime.now(UTC)
         return True
 
     def validate(self) -> None:

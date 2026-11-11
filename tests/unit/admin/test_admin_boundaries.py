@@ -123,5 +123,6 @@ def test_every_admin_route_sits_under_the_guarded_prefix() -> None:
         "/admin/products/{product_id}",
         "/admin/products/{product_id}/stock",
         "/admin/orders",
+        "/admin/orders/{order_id}/fulfillment",
         "/admin/users",
     }

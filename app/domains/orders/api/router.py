@@ -15,9 +15,7 @@ from fastapi import APIRouter, Depends, status
 from app.domains.orders.api.schemas import (
     CreateOrderRequest,
     OrderResponse,
-    OrderSummaryResponse,
     serialize_order,
-    serialize_order_summary,
 )
 from app.domains.orders.application.service import CheckoutCommand, OrderService
 from app.infrastructure.container import get_order_service
@@ -46,14 +44,18 @@ async def create_order(
     return serialize_order(order)
 
 
-@router.get("", response_model=list[OrderSummaryResponse])
+@router.get("", response_model=list[OrderResponse])
 async def list_orders(
     principal: Annotated[Principal, Depends(require_authenticated_user)],
     service: Annotated[OrderService, Depends(get_order_service)],
-) -> list[OrderSummaryResponse]:
-    """Return the caller's orders, newest first."""
+) -> list[OrderResponse]:
+    """Return the caller's orders, newest first, with their lines.
+
+    Full orders, not summaries: the profile screen needs the items of every order,
+    and one request is better than one per order.
+    """
     orders = await service.list_for_user(user_id=principal.user_id)
-    return [serialize_order_summary(order) for order in orders]
+    return [serialize_order(order) for order in orders]
 
 
 @router.get("/{order_id}", response_model=OrderResponse)

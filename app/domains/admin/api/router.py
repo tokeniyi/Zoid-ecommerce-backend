@@ -20,6 +20,7 @@ from fastapi import APIRouter, Depends, Query, status
 
 from app.domains.admin.api.schemas import (
     AdminDashboardResponse,
+    AdminFulfillmentRequest,
     AdminOrderListResponse,
     AdminProductCreateRequest,
     AdminProductResponse,
@@ -34,11 +35,13 @@ from app.domains.admin.api.schemas import (
 )
 from app.domains.admin.application.service import (
     AdminService,
+    FulfillmentUpdate,
     NewImage,
     NewProductCommand,
     NewSize,
     RestockCommand,
 )
+from app.domains.orders.api.schemas import OrderResponse, serialize_order
 from app.infrastructure.container import get_admin_service
 from app.security.authorization import require_admin
 from app.shared.pagination import PaginationParams
@@ -145,6 +148,20 @@ async def list_orders(
 ) -> AdminOrderListResponse:
     """Every customer's orders, newest first — paid ones included, by status."""
     return serialize_orders(await service.list_orders(params))
+
+
+@router.patch("/orders/{order_id}/fulfillment", response_model=OrderResponse)
+async def update_fulfillment(
+    order_id: int,
+    body: AdminFulfillmentRequest,
+    service: Annotated[AdminService, Depends(get_admin_service)],
+) -> OrderResponse:
+    """Move a paid order along (processing, in transit, delivered) and/or confirm
+    the terminal of a pickup order. An unpaid order cannot be fulfilled (409)."""
+    order = await service.update_fulfillment(
+        order_id, FulfillmentUpdate(status=body.status, terminal=body.terminal)
+    )
+    return serialize_order(order)
 
 
 @router.get("/users", response_model=AdminUserListResponse)

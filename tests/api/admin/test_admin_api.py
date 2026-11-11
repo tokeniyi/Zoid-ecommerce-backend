@@ -74,7 +74,7 @@ ADMIN_OPERATIONS = _admin_operations()
 
 def _concrete(path: str) -> str:
     """A path template with something plausible in its holes."""
-    return path.replace("{product_id}", "1")
+    return path.replace("{product_id}", "1").replace("{order_id}", "1")
 
 
 def _body_for(method: str) -> dict[str, Any] | None:
@@ -222,13 +222,14 @@ def _all_customers(client: TestClient, admin: str) -> list[dict[str, Any]]:
 
 
 def test_the_admin_surface_is_exactly_what_was_promised() -> None:
-    """The six defined capabilities, and nothing published beside them."""
+    """The defined capabilities, and nothing published beside them."""
     assert {(method, path) for method, path in ADMIN_OPERATIONS} == {
         ("GET", f"{API}/admin/dashboard"),
         ("POST", f"{API}/admin/products"),
         ("PATCH", f"{API}/admin/products/{{product_id}}"),
         ("POST", f"{API}/admin/products/{{product_id}}/stock"),
         ("GET", f"{API}/admin/orders"),
+        ("PATCH", f"{API}/admin/orders/{{order_id}}/fulfillment"),
         ("GET", f"{API}/admin/users"),
     }
 

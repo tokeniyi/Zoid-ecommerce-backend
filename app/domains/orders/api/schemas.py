@@ -56,6 +56,13 @@ class OrderResponse(BaseModel):
     reference: str
     status: str
     currency: str
+    #: Where the *payment* stands: ``pending``, ``paid`` or ``cancelled``.
+    payment_status: str
+    #: The shop's progress on a paid order: ``processing``, ``in_transit``, ``delivered``.
+    fulfillment_status: str
+    #: The reference of the payment that settled the order; ``null`` until paid.
+    payment_reference: str | None
+    paid_at: datetime | None
     #: The goods alone; ``total`` = subtotal + customization_total + delivery.fee.
     subtotal: str
     customization_total: str
@@ -69,16 +76,6 @@ class OrderResponse(BaseModel):
     city_state: str
     notes: str | None
     items: list[OrderItemResponse]
-    created_at: datetime | None
-
-
-class OrderSummaryResponse(BaseModel):
-    id: int
-    reference: str
-    status: str
-    currency: str
-    total: str
-    count: int
     created_at: datetime | None
 
 
@@ -103,6 +100,10 @@ def serialize_order(order: Order) -> OrderResponse:
         id=order.id,
         reference=order.reference,
         status=order.status.value,
+        payment_status=order.payment_status.value,
+        fulfillment_status=order.fulfillment_status.value,
+        payment_reference=order.payment_reference,
+        paid_at=order.paid_at,
         currency=order.currency,
         subtotal=serialize_money(order.subtotal),
         customization_total=serialize_money(order.customization_total),
@@ -127,17 +128,5 @@ def serialize_order(order: Order) -> OrderResponse:
         city_state=order.city_state,
         notes=order.notes,
         items=[serialize_item(item) for item in order.items],
-        created_at=order.created_at,
-    )
-
-
-def serialize_order_summary(order: Order) -> OrderSummaryResponse:
-    return OrderSummaryResponse(
-        id=order.id,
-        reference=order.reference,
-        status=order.status.value,
-        currency=order.currency,
-        total=serialize_money(order.total),
-        count=order.item_count,
         created_at=order.created_at,
     )

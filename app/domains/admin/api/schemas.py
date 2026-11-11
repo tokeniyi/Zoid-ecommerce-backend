@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field
 from app.domains.admin.application.service import DashboardOverview
 from app.domains.orders.api.schemas import OrderResponse, serialize_order
 from app.domains.orders.domain.entities import Order
+from app.domains.orders.domain.enums import FulfillmentStatus
 from app.domains.products.api.schemas import ProductDetailResponse, serialize_detail
 from app.domains.products.domain.entities import Product
 from app.domains.users.api.schemas import UserProfileResponse
@@ -123,6 +124,14 @@ class AdminStockIncreaseRequest(BaseModel):
 
     size: str = Field(min_length=1, max_length=20)
     quantity: int = Field(ge=1)
+
+
+class AdminFulfillmentRequest(BaseModel):
+    """Progress on an order. Send either field, or both."""
+
+    status: FulfillmentStatus | None = None
+    #: Confirm (or correct) the GUO terminal of a pickup order.
+    terminal: str | None = Field(default=None, min_length=1, max_length=200)
 
 
 class AdminStockResponse(BaseModel):

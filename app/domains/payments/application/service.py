@@ -297,7 +297,7 @@ class PaymentService:
             transaction.mark_failed(reason)
         changed = transaction.status is not before
         await self._transactions.save(transaction)
-        if status is PaymentStatus.PAID and order.mark_paid():
+        if status is PaymentStatus.PAID and order.mark_paid(reference=transaction.reference):
             await self._orders.save(order)
             # The transition is the trigger: announcing a payment here means one
             # email per paid order, however many times the provider repeats it.

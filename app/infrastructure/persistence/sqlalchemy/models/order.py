@@ -83,6 +83,14 @@ class OrderRow(Base):
         String(500), nullable=False, default="", server_default=text("''")
     )
 
+    # Fulfillment is its own track, apart from `status` (which is payment-side).
+    fulfillment_status: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="processing", server_default=text("'processing'"),
+        index=True,
+    )
+    payment_reference: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

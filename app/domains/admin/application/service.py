@@ -29,7 +29,7 @@ from app.domains.admin.domain.repositories import (
     AbstractUserRepository,
 )
 from app.domains.orders.domain.entities import Order
-from app.domains.orders.domain.enums import OrderStatus
+from app.domains.orders.domain.enums import FulfillmentStatus, OrderStatus
 from app.domains.products.domain.entities import (
     Category,
     Inventory,
@@ -92,6 +92,15 @@ class NewProductCommand:
     is_special: bool = False
     is_new_arrival: bool = False
     is_active: bool = True
+
+
+@dataclass(frozen=True)
+class FulfillmentUpdate:
+    """What the shop says about an order's journey. Either part may be omitted."""
+
+    status: FulfillmentStatus | None = None
+    #: The GUO terminal a pickup order is confirmed for.
+    terminal: str | None = None
 
 
 @dataclass(frozen=True)
@@ -315,6 +324,25 @@ class AdminService:
             added=command.quantity,
             available=variant.inventory.available,
         )
+
+    async def update_fulfillment(self, order_id: int, update: FulfillmentUpdate) -> Order:
+        """Record progress on an order: its fulfillment stage and/or pickup terminal.
+
+        The order entity decides what is allowed (only a paid order can be
+        fulfilled; only a pickup order has a terminal), so the admin screen and any
+        future caller are held to the same rules. Nothing is saved unless every
+        part of the update is accepted.
+        """
+        if update.status is None and update.terminal is None:
+            raise ValidationError("Send a status, a terminal, or both.")
+        order = await self._orders.get_by_id(order_id)
+        if order is None:
+            raise NotFoundError("Order not found.")
+        if update.terminal is not None:
+            order.confirm_terminal(update.terminal)
+        if update.status is not None:
+            order.set_fulfillment(update.status)
+        return await self._orders.save(order)
 
     async def _load_product(self, product_id: int) -> Product:
         """The product an admin asked about, sold out or not.

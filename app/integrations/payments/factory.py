@@ -29,6 +29,7 @@ def _paystack(settings: Settings) -> AbstractPaymentGateway:
         secret_key=settings.paystack_secret_key,
         callback_url=settings.payment_return_url,
         webhook_secret=settings.paystack_webhook_secret,
+        base_url=settings.paystack_base_url,
     )
 
 

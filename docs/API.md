@@ -40,7 +40,7 @@ a consistent `{"detail": ...}` shape and never a stack trace.
 
 | Method | Path | Auth | Notes |
 | --- | --- | --- | --- |
-| POST | `/auth/signup` | none | Creates a customer and opens a session (201). |
+| POST | `/auth/signup` | none | Creates a customer account (`201`). It does **not** sign the user in: call `/auth/login` next to get the session cookie. Duplicate email is `409`. |
 | POST | `/auth/login` | none | Verifies credentials, sets the session cookie. Rate-limit friendly. |
 | POST | `/auth/logout` | session | Clears the session cookie. |
 | GET | `/auth/me` | session | The current principal's identity. |

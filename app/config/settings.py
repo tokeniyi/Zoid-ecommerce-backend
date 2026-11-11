@@ -69,6 +69,9 @@ class Settings(BaseSettings):
     # --- Payment providers ---
     paystack_secret_key: str = Field(default="", repr=False)
     paystack_webhook_secret: str = Field(default="", repr=False)
+    #: Paystack's API address. Only change it to point at a sandbox, a proxy, or a
+    #: local stand-in used for end-to-end API testing (see ``postman/``).
+    paystack_base_url: str = "https://api.paystack.co"
     stripe_secret_key: str = Field(default="", repr=False)
     stripe_webhook_secret: str = Field(default="", repr=False)
     payment_currency: str = "NGN"

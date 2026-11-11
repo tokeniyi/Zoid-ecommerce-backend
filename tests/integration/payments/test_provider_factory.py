@@ -95,6 +95,18 @@ def test_paystack_configuration_selects_the_paystack_adapter() -> None:
     assert gateway.provider == "paystack"
 
 
+def test_paystack_defaults_to_the_real_api_and_can_be_pointed_elsewhere() -> None:
+    """A sandbox, proxy or local stand-in is configuration, not a code change."""
+    assert _settings("paystack").paystack_base_url == "https://api.paystack.co"
+
+    custom = _settings("paystack")
+    custom.paystack_base_url = "http://127.0.0.1:9100"
+    gateway = build_payment_gateway(custom)
+
+    assert isinstance(gateway, PaystackPaymentGateway)
+    assert gateway._base_url == "http://127.0.0.1:9100"
+
+
 def test_stripe_configuration_selects_the_stripe_adapter() -> None:
     gateway = build_payment_gateway(_settings("stripe"))
 

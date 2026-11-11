@@ -1,5 +1,10 @@
 # Frontend ↔ Backend Gap Analysis
 
+> **Status: the backend gaps below are closed** (plan steps 2–9, the admin bootstrap and
+> the other findings), verified by the Postman suite in `postman/`. This document is kept
+> as the record of what was missing. For what to do next on the frontend, read
+> [FRONTEND_INTEGRATION.md](FRONTEND_INTEGRATION.md).
+
 Compares what the storefront (`eddy-mfon/Zoid`, commit `ee9b5c5`) needs against what
 the backend serves today (31 operations, verified from `/openapi.json`; 680 tests pass).
 

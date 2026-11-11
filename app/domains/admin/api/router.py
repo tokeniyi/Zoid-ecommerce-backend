@@ -17,13 +17,14 @@ from __future__ import annotations
 from datetime import UTC, date, datetime, time, timedelta, timezone
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, Request, status
 
 from app.config import get_settings
 from app.domains.admin.api.schemas import (
     AdminAnalyticsResponse,
     AdminDashboardResponse,
     AdminFulfillmentRequest,
+    AdminImageUploadResponse,
     AdminOrderListResponse,
     AdminProductCreateRequest,
     AdminProductListResponse,
@@ -42,6 +43,7 @@ from app.domains.admin.api.schemas import (
     serialize_users,
 )
 from app.domains.admin.application.analytics import Period
+from app.domains.admin.application.images import ProductImageService
 from app.domains.admin.application.service import (
     AdminService,
     FulfillmentUpdate,
@@ -57,8 +59,9 @@ from app.domains.orders.domain.enums import FulfillmentStatus, OrderPaymentStatu
 from app.domains.products.api.router import get_criteria
 from app.domains.products.domain.entities import StockStatus
 from app.domains.products.domain.search import ProductCriteria
-from app.infrastructure.container import get_admin_service
+from app.infrastructure.container import get_admin_service, get_product_image_service
 from app.security.authorization import require_admin
+from app.shared.exceptions import ValidationError
 from app.shared.pagination import PaginationParams
 
 router = APIRouter(
@@ -83,6 +86,23 @@ def store_timezone() -> timezone:
 
 def _day_start(day: date) -> datetime:
     return datetime.combine(day, time.min, tzinfo=store_timezone()).astimezone(UTC)
+
+
+async def _read_capped(request: Request, limit: int) -> bytes:
+    """The request body, refusing as soon as it passes ``limit`` bytes.
+
+    Read in chunks so an oversized upload is cut off instead of being held in
+    memory first and measured afterwards.
+    """
+    declared = request.headers.get("content-length")
+    if declared and declared.isdigit() and int(declared) > limit:
+        raise ValidationError(f"The image is too large; the limit is {limit} bytes.")
+    body = bytearray()
+    async for chunk in request.stream():
+        body.extend(chunk)
+        if len(body) > limit:
+            raise ValidationError(f"The image is too large; the limit is {limit} bytes.")
+    return bytes(body)
 
 
 @router.get("/dashboard", response_model=AdminDashboardResponse)
@@ -111,6 +131,34 @@ async def list_products(
     """
     return serialize_products(
         await service.list_products(params, criteria, active=active, stock=stock)
+    )
+
+
+@router.post(
+    "/products/images",
+    response_model=AdminImageUploadResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def upload_product_image(
+    request: Request,
+    service: Annotated[ProductImageService, Depends(get_product_image_service)],
+) -> AdminImageUploadResponse:
+    """Store a product image and get back its public URL.
+
+    Send the image's raw bytes as the request body (``fetch(url, {method: "POST",
+    body: file})``) - JPEG, PNG, GIF or WebP, up to ``MAX_UPLOAD_BYTES``. The file is
+    identified by its contents, not by the type or name the browser claims, and is
+    stored under a name the server generates. Put the returned ``url`` in the
+    ``images`` of ``POST /admin/products``; an already-hosted address can still be
+    given there directly.
+    """
+    content = await _read_capped(request, get_settings().max_upload_bytes)
+    uploaded = await service.upload(content)
+    return AdminImageUploadResponse(
+        url=uploaded.url,
+        key=uploaded.key,
+        content_type=uploaded.content_type,
+        size=uploaded.size,
     )
 
 

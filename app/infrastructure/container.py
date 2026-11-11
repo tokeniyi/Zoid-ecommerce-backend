@@ -12,6 +12,7 @@ from collections.abc import AsyncIterator
 from fastapi import Depends
 
 from app.config import get_settings
+from app.domains.admin.application.images import ProductImageService
 from app.domains.admin.application.service import AdminService
 from app.domains.auth.application.service import AuthService
 from app.domains.cart.application.service import CartService
@@ -189,3 +190,15 @@ async def get_admin_service(
     service already gets, so an admin edit runs through the same rules.
     """
     return AdminService(products=uow.products, orders=uow.orders, users=uow.users)
+
+
+def get_product_image_service(
+    storage: AbstractFileStorage = Depends(get_file_storage),
+) -> ProductImageService:
+    """Product image uploads, bound to the configured file store."""
+    config = get_settings()
+    return ProductImageService(
+        storage=storage,
+        public_base_url=config.storage_public_base_url,
+        max_bytes=config.max_upload_bytes,
+    )

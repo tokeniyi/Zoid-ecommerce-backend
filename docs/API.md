@@ -28,6 +28,7 @@ a consistent `{"detail": ...}` shape and never a stack trace.
 | `RateLimitError` | 429 | Too many requests |
 | `SignatureVerificationError` | 400 | Bad webhook signature |
 | `ProviderNotConfiguredError` | 501 | Selected provider lacks credentials |
+| `ProviderError` | 502 | A configured provider could not do what it was asked |
 
 ## Health
 
@@ -166,7 +167,8 @@ directly — bypassing any frontend — gets 401 (no session) or 403 (wrong role
 | GET | `/admin/dashboard` | admin | Store-wide counts. |
 | GET | `/admin/analytics` | admin | Revenue, accounting, operations, best sellers and a daily trend for `date_from`..`date_to` (default: the current Mon–Sun week, store time; max 366 days), each compared with the period of equal length before it. **Revenue is money collected (paid orders)**; unpaid orders appear as `outstanding`, cancelled ones as neither. An order belongs to the day it was placed. Refunds are not netted off yet. |
 | GET | `/admin/products` | admin | The whole catalog, **hidden products included**. Takes the storefront's `q`/filters/`sort` plus `active` (true/false) and `stock` (`in_stock`/`low_stock`/`out_of_stock`). |
-| POST | `/admin/products` | admin | Create a product. |
+| POST | `/admin/products/images` | admin | Upload a product image: send the raw image bytes as the request body (JPEG/PNG/GIF/WebP, up to `MAX_UPLOAD_BYTES`, default 5 MB). The type is read from the bytes, not the headers (SVG and anything else is `422`); the stored name is server-generated. Returns `{url, key, content_type, size}`; put `url` in a product's `images`. An unreachable or refusing store is `502`. S3-compatible stores need `STORAGE_PUBLIC_BASE_URL`. |
+| POST | `/admin/products` | admin | Create a product (`images` takes uploaded or already-hosted URLs). |
 | PATCH | `/admin/products/{product_id}` | admin | Edit a product. `is_active: false` archives it (gone from the storefront, list and product page); `true` restores it. |
 | POST | `/admin/products/{product_id}/stock` | admin | Restock a variant (adds units). |
 | PATCH | `/admin/products/{product_id}/stock` | admin | Correct a size's stock **up or down**: `{size, delta}` (`-3` removes three) or `{size, set_to}` (a stock-take). Never below the units already reserved for customers' orders (`422`). |

@@ -206,7 +206,9 @@ PROVIDER_NAMES = ("paystack", "stripe", "resend", "sendgrid", "cloudinary")
 #: The contract modules the architecture itself places under ``integrations``.
 #: The email interface lives there (architecture #30), so a domain may import
 #: exactly that file -- and nothing else in the package.
-CONTRACTS_IN_INTEGRATIONS = frozenset({"app.integrations.email.sender"})
+CONTRACTS_IN_INTEGRATIONS = frozenset(
+    {"app.integrations.email.sender", "app.integrations.storage.contract"}
+)
 
 
 def test_no_business_module_names_a_provider_or_reaches_into_integrations() -> None:

@@ -77,6 +77,13 @@ class Settings(BaseSettings):
     #: The store's local time as minutes ahead of UTC (Nigeria: +1h, no daylight
     #: saving). Decides which calendar day an order belongs to in sales reports.
     store_utc_offset_minutes: int = 60
+    #: Where uploaded product images can be read from by anyone, e.g.
+    #: ``https://cdn.example.com`` or an S3 bucket's public URL. A provider that
+    #: reports its own address (Cloudinary) does not need it; one that does not
+    #: (S3-compatible storage) does, and the upload is refused without it.
+    storage_public_base_url: str = ""
+    #: The largest image an admin may upload, in bytes.
+    max_upload_bytes: int = 5_000_000
     # Where the provider's hosted checkout returns the customer to.
     # Default matches the Vite dev server (port 3000).
     payment_return_url: str = "http://localhost:3000/checkout"

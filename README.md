@@ -58,6 +58,7 @@ Key variables (see `.env.example` for the full, annotated list):
 | `PAYSTACK_SECRET_KEY` / `PAYSTACK_WEBHOOK_SECRET` | Paystack credentials + webhook signing |
 | `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` | Stripe credentials + webhook signing |
 | `STORE_UTC_OFFSET_MINUTES` | Store clock for sales reports, minutes ahead of UTC (default `60`, Nigeria) |
+| `STORAGE_PUBLIC_BASE_URL`, `MAX_UPLOAD_BYTES` | Public address uploaded images are served from (required for S3-compatible storage; Cloudinary reports its own) and the upload size cap (default 5 MB) |
 | `CUSTOMIZATION_FEE` | Per-unit charge for a personalised jersey (default `2000`) |
 | `RESEND_API_KEY`, `STORE_OWNER_EMAIL`, `EMAIL_FROM` | Email provider + owner notification |
 | `CLOUDINARY_*` / `S3_*` | Storage provider credentials |

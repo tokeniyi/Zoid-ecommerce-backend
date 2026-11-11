@@ -60,6 +60,16 @@ class ProviderNotConfiguredError(AppError):
     default_message = "Provider is not configured."
 
 
+class ProviderError(AppError):
+    """A configured provider could not do what it was asked (unreachable, refused).
+
+    Distinct from "not configured": the deployment is set up, the provider said no.
+    """
+
+    status_code = HTTPStatus.BAD_GATEWAY
+    default_message = "The provider could not complete the request."
+
+
 class SignatureVerificationError(AppError):
     """An inbound provider request did not carry a valid provider signature.
 

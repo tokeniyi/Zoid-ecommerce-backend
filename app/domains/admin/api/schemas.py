@@ -136,6 +136,15 @@ class AdminFulfillmentRequest(BaseModel):
     terminal: str | None = Field(default=None, min_length=1, max_length=200)
 
 
+class AdminImageUploadResponse(BaseModel):
+    """Where an uploaded image now lives. Use ``url`` in a product's ``images``."""
+
+    url: str
+    key: str
+    content_type: str
+    size: int
+
+
 class AdminStockAdjustRequest(BaseModel):
     """Correct one size's stock: by an amount (``delta``, may be negative) or to an
     amount (``set_to``, a stock-take). Send exactly one."""

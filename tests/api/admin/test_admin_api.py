@@ -228,6 +228,7 @@ def test_the_admin_surface_is_exactly_what_was_promised() -> None:
         ("GET", f"{API}/admin/analytics"),
         ("GET", f"{API}/admin/products"),
         ("POST", f"{API}/admin/products"),
+        ("POST", f"{API}/admin/products/images"),
         ("PATCH", f"{API}/admin/products/{{product_id}}"),
         ("POST", f"{API}/admin/products/{{product_id}}/stock"),
         ("PATCH", f"{API}/admin/products/{{product_id}}/stock"),

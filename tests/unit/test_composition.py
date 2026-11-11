@@ -79,7 +79,13 @@ _SELECTORS = frozenset(
 
 #: The only cross-layer integration import business code may make: a provider
 #: *contract*, never a factory. Adding a consumer here is the signal to widen it.
-_ALLOWED_INTEGRATION_IMPORTS = frozenset({"app.integrations.email.sender"})
+_ALLOWED_INTEGRATION_IMPORTS = frozenset(
+    {
+        "app.integrations.email.sender",
+        # The admin's product-image upload: the file-store *contract*, never a factory.
+        "app.integrations.storage.contract",
+    }
+)
 
 
 def _operations(built: dict) -> set[tuple[str, str]]:

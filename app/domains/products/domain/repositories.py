@@ -31,6 +31,17 @@ class AbstractProductRepository(ABC):
         """Total number of active products."""
 
     @abstractmethod
+    async def list_catalog(self, *, include_inactive: bool = False) -> list[Product]:
+        """Return every product in catalog order (oldest first).
+
+        Active products only, unless ``include_inactive`` is set — which is for
+        the shop's own screens, where a hidden product still has to be seen in
+        order to be brought back. Search, filtering and ordering are catalog
+        *rules* and run over this list in the domain (``products.domain.search``),
+        so there is one implementation of them, not one per storage engine.
+        """
+
+    @abstractmethod
     async def save(self, product: Product) -> Product | None:
         """Persist changes made to a loaded product; ``None`` if it is gone.
 

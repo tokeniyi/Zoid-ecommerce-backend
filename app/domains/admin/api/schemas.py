@@ -64,6 +64,8 @@ class AdminProductCreateRequest(BaseModel):
     category_slug: str = Field(min_length=1, max_length=140)
     category_name: str = Field(min_length=1, max_length=120)
     price: Decimal = Field(ge=0)
+    #: Price before a markdown; the storefront's discount is computed from it.
+    original_price: Decimal | None = Field(default=None, ge=0)
     currency: str = Field(default="NGN", min_length=3, max_length=3)
     sizes: list[AdminProductSizeRequest] = Field(default_factory=list)
     images: list[AdminProductImageRequest] = Field(default_factory=list)
@@ -76,6 +78,7 @@ class AdminProductCreateRequest(BaseModel):
     delivery: str = Field(default="", max_length=120)
     is_bestseller: bool = False
     is_special: bool = False
+    is_new_arrival: bool = False
     is_active: bool = True
 
 
@@ -84,11 +87,14 @@ class AdminProductUpdateRequest(BaseModel):
 
     An explicit ``null`` counts as left out: PATCH here means "change what you
     named", and clearing a description to an empty string is done by sending it
-    empty.
+    empty. The one exception is ``original_price``, where ``null`` ends a sale.
     """
 
     name: str | None = Field(default=None, min_length=1, max_length=200)
     price: Decimal | None = Field(default=None, ge=0)
+    #: Unlike the other fields an explicit ``null`` here *clears* the markdown
+    #: (ends the sale); leaving the field out keeps it.
+    original_price: Decimal | None = Field(default=None, ge=0)
     currency: str | None = Field(default=None, min_length=3, max_length=3)
     tone: str | None = Field(default=None, max_length=120)
     style: str | None = Field(default=None, max_length=120)
@@ -99,13 +105,17 @@ class AdminProductUpdateRequest(BaseModel):
     delivery: str | None = Field(default=None, max_length=120)
     is_bestseller: bool | None = None
     is_special: bool | None = None
+    is_new_arrival: bool | None = None
     #: Hiding a product from the storefront is the reversible alternative to
     #: deleting it, which this store does not do.
     is_active: bool | None = None
 
     def changes(self) -> dict[str, object]:
         """Only the fields the caller actually sent, keyed as the domain names them."""
-        return self.model_dump(exclude_unset=True, exclude_none=True)
+        changes = self.model_dump(exclude_unset=True, exclude_none=True)
+        if "original_price" in self.model_fields_set and self.original_price is None:
+            changes["original_price"] = None  # an explicit null ends the sale
+        return changes
 
 
 class AdminStockIncreaseRequest(BaseModel):

@@ -83,6 +83,7 @@ async def create_product(
             category_slug=body.category_slug,
             category_name=body.category_name,
             price=body.price,
+            original_price=body.original_price,
             currency=body.currency,
             sizes=tuple(
                 NewSize(size=size.size, quantity=size.quantity, sku=size.sku)
@@ -100,6 +101,7 @@ async def create_product(
             delivery=body.delivery,
             is_bestseller=body.is_bestseller,
             is_special=body.is_special,
+            is_new_arrival=body.is_new_arrival,
             is_active=body.is_active,
         )
     )

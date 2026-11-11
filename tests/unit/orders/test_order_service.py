@@ -113,6 +113,11 @@ class InMemoryProductRepository(AbstractProductRepository):
     async def count_active(self) -> int:  # pragma: no cover
         raise NotImplementedError
 
+    async def list_catalog(  # pragma: no cover
+        self, *, include_inactive: bool = False
+    ) -> list[Product]:
+        raise NotImplementedError
+
     async def save(self, product: Product) -> Product | None:  # pragma: no cover
         raise NotImplementedError
 

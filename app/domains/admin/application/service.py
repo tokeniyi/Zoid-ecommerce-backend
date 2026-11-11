@@ -77,6 +77,7 @@ class NewProductCommand:
     category_slug: str
     category_name: str
     price: Decimal
+    original_price: Decimal | None = None
     currency: str = "NGN"
     sizes: tuple[NewSize, ...] = ()
     images: tuple[NewImage, ...] = ()
@@ -89,6 +90,7 @@ class NewProductCommand:
     delivery: str = ""
     is_bestseller: bool = False
     is_special: bool = False
+    is_new_arrival: bool = False
     is_active: bool = True
 
 
@@ -259,6 +261,7 @@ class AdminService:
             name=command.name,
             category=Category(id=0, name=command.category_name, slug=command.category_slug),
             price=command.price,
+            original_price=command.original_price,
             currency=command.currency,
             images=[ProductImage(url=image.url, view=image.view) for image in command.images],
             variants=[
@@ -279,6 +282,7 @@ class AdminService:
             delivery=command.delivery,
             is_bestseller=command.is_bestseller,
             is_special=command.is_special,
+            is_new_arrival=command.is_new_arrival,
             is_active=command.is_active,
         )
         product.validate()

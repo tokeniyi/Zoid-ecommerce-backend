@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 from enum import StrEnum
 
 from app.shared.exceptions import ValidationError
@@ -44,8 +44,10 @@ EDITABLE_PRODUCT_FIELDS = (
     "fit_note",
     "details",
     "delivery",
+    "original_price",
     "is_bestseller",
     "is_special",
+    "is_new_arrival",
     "is_active",
 )
 
@@ -147,10 +149,28 @@ class Product:
     fit_note: str = ""
     details: str = ""
     delivery: str = ""
+    #: The price before a markdown. ``None`` means the product is not on sale.
+    #: The discount shown to shoppers is *derived* from this and ``price``
+    #: (see :attr:`discount_percent`), never stored as an editable badge.
+    original_price: Decimal | None = None
     is_bestseller: bool = False
     is_special: bool = False
+    is_new_arrival: bool = False
     is_active: bool = True
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+
+    @property
+    def discount_percent(self) -> int | None:
+        """Whole-number percentage off ``original_price``, or ``None``.
+
+        Computed so the badge can never disagree with the prices beside it.
+        A markdown that rounds to less than 1% is not worth advertising.
+        """
+        if self.original_price is None or self.original_price <= self.price:
+            return None
+        off = (Decimal(1) - self.price / self.original_price) * 100
+        percent = int(off.quantize(Decimal(1), rounding=ROUND_HALF_UP))
+        return percent if percent >= 1 else None
 
     @property
     def sizes(self) -> list[str]:
@@ -222,6 +242,11 @@ class Product:
             raise ValidationError("Product price cannot be negative.")
         if not self.currency.strip():
             raise ValidationError("Product currency is required.")
+        if self.original_price is not None and self.original_price <= self.price:
+            raise ValidationError(
+                "Original price must be higher than the current price "
+                "(leave it out when the product is not on sale)."
+            )
         self.category.validate()
         for image in self.images:
             image.validate()

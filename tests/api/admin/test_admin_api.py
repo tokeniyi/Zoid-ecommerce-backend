@@ -811,3 +811,57 @@ async def test_the_dashboard_counts_stock_that_can_actually_be_sold(
     assert stats["units_available"] == 2
     # Counting the 4 reserved units would make this 6000.00.
     assert stats["inventory_value"] == "2000.00"
+
+
+async def test_an_admin_runs_a_sale_and_ends_it(client: TestClient) -> None:
+    admin = _mint("admin")
+    product = _create(
+        client, admin, price="58500.00", original_price="68000.00", is_new_arrival=True
+    )
+    assert product["original_price"] == "68000.00"
+    assert product["discount_percent"] == 14
+    assert product["is_new_arrival"] is True
+
+    # Left out: the sale is kept.
+    kept = client.patch(
+        f"{API}/admin/products/{product['id']}", cookies={COOKIE: admin}, json={"name": "Renamed"}
+    ).json()
+    assert kept["discount_percent"] == 14
+
+    # An explicit null ends the sale; nothing else changes.
+    ended = client.patch(
+        f"{API}/admin/products/{product['id']}",
+        cookies={COOKIE: admin},
+        json={"original_price": None},
+    )
+    assert ended.status_code == 200, ended.text
+    assert ended.json()["original_price"] is None
+    assert ended.json()["discount_percent"] is None
+    assert ended.json()["price"] == "58500.00"
+
+
+async def test_a_sale_price_must_be_a_real_markdown(client: TestClient) -> None:
+    admin = _mint("admin")
+    refused = client.post(
+        f"{API}/admin/products",
+        cookies={COOKIE: admin},
+        json=_new_product(price="58500.00", original_price="50000.00"),
+    )
+    assert refused.status_code == 422
+
+    product = _create(client, admin, price="50000.00", original_price="60000.00")
+    # Raising the price above the old one without ending the sale is refused...
+    too_high = client.patch(
+        f"{API}/admin/products/{product['id']}",
+        cookies={COOKIE: admin},
+        json={"price": "70000.00"},
+    )
+    assert too_high.status_code == 422
+    # ...and the product is untouched; doing both in one edit is fine.
+    assert client.get(f"{API}/products/{product['slug']}").json()["price"] == "50000.00"
+    both = client.patch(
+        f"{API}/admin/products/{product['id']}",
+        cookies={COOKIE: admin},
+        json={"price": "70000.00", "original_price": None},
+    )
+    assert both.status_code == 200, both.text

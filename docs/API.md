@@ -55,9 +55,23 @@ a consistent `{"detail": ...}` shape and never a stack trace.
 
 | Method | Path | Auth | Notes |
 | --- | --- | --- | --- |
-| GET | `/products` | none | Paginated active products (`page`, `page_size`). Ordered oldest-first. |
+| GET | `/products` | none | Paginated active products (`page`, `page_size`). Oldest-first by default; see query parameters below. |
 | GET | `/products/{identifier}` | none | One product by slug or numeric id, with variants, stock and images. |
 | GET | `/categories` | none | Product categories. |
+
+`GET /products` query parameters (all optional, combinable):
+
+| Parameter | Meaning |
+| --- | --- |
+| `q` | Forgiving text search over name, category, colour, style and tone; typos are tolerated (`liverpol` finds Liverpool). Results are ranked by relevance. |
+| `category` | Category slug. |
+| `style`, `color`, `size` | Case-insensitive exact match (`size` = an offered size). |
+| `min_price`, `max_price` | Inclusive price range. |
+| `bestseller`, `special`, `new_arrival`, `on_sale` | Boolean flags. |
+| `sort` | `relevance` (default when `q` is set), `oldest` (default otherwise), `newest`, `price_asc`, `price_desc`, `name`. |
+
+Product responses carry `original_price`, `discount_percent` (computed from the two
+prices, never stored) and `is_new_arrival`. `total`/`total_pages` count the filtered set.
 
 There is no public write endpoint for the catalog; products are created/updated
 only through the admin surface below.

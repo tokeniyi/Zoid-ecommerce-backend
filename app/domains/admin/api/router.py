@@ -14,25 +14,34 @@ decorate it.
 
 from __future__ import annotations
 
+from datetime import UTC, date, datetime, time, timedelta, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, status
 
+from app.config import get_settings
 from app.domains.admin.api.schemas import (
+    AdminAnalyticsResponse,
     AdminDashboardResponse,
     AdminFulfillmentRequest,
     AdminOrderListResponse,
     AdminProductCreateRequest,
+    AdminProductListResponse,
     AdminProductResponse,
     AdminProductUpdateRequest,
+    AdminStockAdjustRequest,
+    AdminStockAdjustResponse,
     AdminStockIncreaseRequest,
     AdminStockResponse,
     AdminUserListResponse,
+    serialize_analytics,
     serialize_dashboard,
     serialize_orders,
     serialize_product,
+    serialize_products,
     serialize_users,
 )
+from app.domains.admin.application.analytics import Period
 from app.domains.admin.application.service import (
     AdminService,
     FulfillmentUpdate,
@@ -40,8 +49,14 @@ from app.domains.admin.application.service import (
     NewProductCommand,
     NewSize,
     RestockCommand,
+    StockAdjustment,
 )
 from app.domains.orders.api.schemas import OrderResponse, serialize_order
+from app.domains.orders.domain.criteria import OrderCriteria
+from app.domains.orders.domain.enums import FulfillmentStatus, OrderPaymentStatus
+from app.domains.products.api.router import get_criteria
+from app.domains.products.domain.entities import StockStatus
+from app.domains.products.domain.search import ProductCriteria
 from app.infrastructure.container import get_admin_service
 from app.security.authorization import require_admin
 from app.shared.pagination import PaginationParams
@@ -61,12 +76,42 @@ def get_pagination(
     return PaginationParams(page=page, page_size=page_size)
 
 
+def store_timezone() -> timezone:
+    """The store's own clock: which calendar day an order belongs to."""
+    return timezone(timedelta(minutes=get_settings().store_utc_offset_minutes))
+
+
+def _day_start(day: date) -> datetime:
+    return datetime.combine(day, time.min, tzinfo=store_timezone()).astimezone(UTC)
+
+
 @router.get("/dashboard", response_model=AdminDashboardResponse)
 async def get_dashboard(
     service: Annotated[AdminService, Depends(get_admin_service)],
 ) -> AdminDashboardResponse:
     """One look at the store: catalog, order book and customers."""
     return serialize_dashboard(await service.dashboard())
+
+
+@router.get("/products", response_model=AdminProductListResponse)
+async def list_products(
+    service: Annotated[AdminService, Depends(get_admin_service)],
+    params: Annotated[PaginationParams, Depends(get_pagination)],
+    criteria: Annotated[ProductCriteria, Depends(get_criteria)],
+    active: Annotated[
+        bool | None, Query(description="true: on the shelf; false: hidden; omit: both.")
+    ] = None,
+    stock: Annotated[StockStatus | None, Query(description="How it is stocked.")] = None,
+) -> AdminProductListResponse:
+    """The whole catalog, hidden products included.
+
+    Takes the storefront's search, filters and sorting (so the screen finds things
+    the way a shopper would) plus ``active`` and ``stock``. Hiding a product
+    (``PATCH`` with ``is_active: false``) archives it; setting it back unarchives.
+    """
+    return serialize_products(
+        await service.list_products(params, criteria, active=active, stock=stock)
+    )
 
 
 @router.post(
@@ -141,13 +186,77 @@ async def increase_stock(
     )
 
 
+@router.patch("/products/{product_id}/stock", response_model=AdminStockAdjustResponse)
+async def adjust_stock(
+    product_id: int,
+    body: AdminStockAdjustRequest,
+    service: Annotated[AdminService, Depends(get_admin_service)],
+) -> AdminStockAdjustResponse:
+    """Correct one size's stock, up or down: ``delta`` (-3 removes three) or
+    ``set_to`` (a stock-take). Stock can never go below what customers' orders
+    have already reserved (422)."""
+    receipt = await service.adjust_stock(
+        product_id, StockAdjustment(size=body.size, delta=body.delta, set_to=body.set_to)
+    )
+    return AdminStockAdjustResponse(
+        product_id=receipt.product_id,
+        size=receipt.size,
+        change=receipt.change,
+        quantity=receipt.quantity,
+        reserved=receipt.reserved,
+        available=receipt.available,
+    )
+
+
 @router.get("/orders", response_model=AdminOrderListResponse)
 async def list_orders(
     service: Annotated[AdminService, Depends(get_admin_service)],
     params: Annotated[PaginationParams, Depends(get_pagination)],
+    payment_status: OrderPaymentStatus | None = None,
+    fulfillment_status: FulfillmentStatus | None = None,
+    delivery_option: Annotated[
+        str | None, Query(pattern="^(standard|express|pickup)$")
+    ] = None,
+    q: Annotated[
+        str,
+        Query(max_length=100, description="Order reference, or customer name, email or phone."),
+    ] = "",
+    date_from: Annotated[date | None, Query(description="Placed on or after (store time).")] = None,
+    date_to: Annotated[date | None, Query(description="Placed on or before (store time).")] = None,
 ) -> AdminOrderListResponse:
-    """Every customer's orders, newest first — paid ones included, by status."""
-    return serialize_orders(await service.list_orders(params))
+    """Every customer's orders, newest first, optionally narrowed. ``total`` counts
+    the orders that matched."""
+    criteria = OrderCriteria(
+        payment_status=payment_status,
+        fulfillment_status=fulfillment_status,
+        delivery_option=delivery_option,
+        query=q,
+        created_from=_day_start(date_from) if date_from else None,
+        created_before=_day_start(date_to + timedelta(days=1)) if date_to else None,
+    )
+    return serialize_orders(await service.list_orders(params, criteria))
+
+
+@router.get("/analytics", response_model=AdminAnalyticsResponse)
+async def get_analytics(
+    service: Annotated[AdminService, Depends(get_admin_service)],
+    date_from: Annotated[date | None, Query()] = None,
+    date_to: Annotated[date | None, Query()] = None,
+) -> AdminAnalyticsResponse:
+    """Revenue, accounting, operations, best sellers and a day-by-day trend.
+
+    Defaults to the current week (Monday to Sunday, store time). Revenue is money
+    actually collected (paid orders); unpaid orders show as outstanding. Every
+    figure is compared with the period of equal length just before.
+    """
+    tz = store_timezone()
+    today = datetime.now(tz).date()
+    if date_from is None and date_to is None:
+        period = Period.week_of(today)
+    else:
+        start = date_from or (date_to - timedelta(days=6))  # type: ignore[operator]
+        period = Period(first_day=start, last_day=date_to or start + timedelta(days=6))
+    return serialize_analytics(await service.analytics(period, tz))
 
 
 @router.patch("/orders/{order_id}/fulfillment", response_model=OrderResponse)

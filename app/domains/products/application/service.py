@@ -45,13 +45,18 @@ class ProductService:
 
     async def get_product(self, identifier: str) -> Product:
         """Resolve a product by numeric id or public slug (slug is the identity
-        the storefront navigates by)."""
+        the storefront navigates by).
+
+        An archived (``is_active = false``) product is simply not on the shelf, so
+        it is not found here, exactly as it is absent from the listing. The shop
+        still reaches it through the admin surface.
+        """
         product: Product | None = None
         if identifier.isdigit():
             product = await self._products.get_by_id(int(identifier))
         if product is None:
             product = await self._products.get_by_slug(identifier)
-        if product is None:
+        if product is None or not product.is_active:
             raise NotFoundError("Product not found.")
         return product
 

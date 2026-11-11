@@ -199,3 +199,52 @@ def test_flag_filters(catalog: list[Product]) -> None:
 )
 def test_sort_orders(catalog: list[Product], sort: ProductSort, expected: list[int]) -> None:
     assert [p.id for p in search(catalog, ProductCriteria(sort=sort))] == expected
+
+
+# ── stock corrections (the inventory rules behind the admin endpoint) ───
+
+
+def _stock(quantity: int, reserved: int = 0) -> Inventory:
+    return Inventory(quantity=quantity, reserved=reserved)
+
+
+def test_stock_can_be_corrected_down_as_well_as_up() -> None:
+    inventory = _stock(10)
+    inventory.adjust(-3)
+    assert inventory.quantity == 7
+    inventory.adjust(5)
+    assert inventory.quantity == 12
+
+
+def test_a_correction_cannot_take_stock_from_under_a_promised_order() -> None:
+    inventory = _stock(10, reserved=4)
+
+    inventory.adjust(-6)  # exactly down to what is promised is fine
+    assert (inventory.quantity, inventory.available) == (4, 0)
+
+    with pytest.raises(ValidationError, match="reserved"):
+        inventory.adjust(-1)
+    assert inventory.quantity == 4  # unchanged by the refusal
+
+
+def test_stock_cannot_go_below_zero() -> None:
+    with pytest.raises(ValidationError, match="below zero"):
+        _stock(2).adjust(-3)
+
+
+def test_a_zero_adjustment_is_refused_but_confirming_a_count_is_fine() -> None:
+    with pytest.raises(ValidationError, match="change the count"):
+        _stock(5).adjust(0)
+    inventory = _stock(5)
+    inventory.set_quantity(5)  # a stock-take that agrees with the books
+    assert inventory.quantity == 5
+
+
+def test_a_stock_take_sets_the_count_outright_under_the_same_rules() -> None:
+    inventory = _stock(10, reserved=3)
+    inventory.set_quantity(20)
+    assert inventory.quantity == 20
+    inventory.set_quantity(3)
+    assert inventory.quantity == 3
+    with pytest.raises(ValidationError, match="reserved"):
+        inventory.set_quantity(2)

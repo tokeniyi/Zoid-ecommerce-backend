@@ -207,3 +207,11 @@ async def test_filters_and_sorting_combine(client: TestClient) -> None:
 async def test_bad_filter_values_are_rejected(client: TestClient) -> None:
     assert client.get(f"{API}/products", params={"sort": "sideways"}).status_code == 422
     assert client.get(f"{API}/products", params={"min_price": "-1"}).status_code == 422
+
+
+async def test_an_archived_product_is_not_found_by_slug_or_id(client: TestClient) -> None:
+    """Archiving hides a product everywhere a shopper can reach it, not just the list."""
+    hidden = await _seed(_make("Archived Shirt", "50000.00", is_active=False))
+
+    assert client.get(f"{API}/products/{hidden.slug}").status_code == 404
+    assert client.get(f"{API}/products/{hidden.id}").status_code == 404

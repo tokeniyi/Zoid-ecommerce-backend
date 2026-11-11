@@ -7,12 +7,13 @@ the order row from the domain's computed properties.
 
 from __future__ import annotations
 
-from sqlalchemy import func, select
+from sqlalchemy import ColumnElement, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.domains.orders.domain.criteria import OrderCriteria
 from app.domains.orders.domain.entities import NEW_ITEM_ID, Order, OrderItem
-from app.domains.orders.domain.enums import FulfillmentStatus, OrderStatus
+from app.domains.orders.domain.enums import FulfillmentStatus, OrderPaymentStatus, OrderStatus
 from app.domains.orders.domain.repositories import AbstractOrderRepository
 from app.infrastructure.persistence.sqlalchemy.models.order import OrderRow
 from app.infrastructure.persistence.sqlalchemy.models.order_item import OrderItemRow
@@ -83,6 +84,60 @@ class SqlOrderRepository(AbstractOrderRepository):
             )
         ).scalars().all()
         return [self._to_domain(row) for row in rows]
+
+    async def search(
+        self, criteria: OrderCriteria, *, limit: int | None = None, offset: int = 0
+    ) -> list[Order]:
+        stmt = (
+            select(OrderRow)
+            .options(selectinload(OrderRow.items))
+            .where(*self._conditions(criteria))
+            .order_by(OrderRow.id.desc())
+            .offset(offset)
+        )
+        if limit is not None:
+            stmt = stmt.limit(limit)
+        rows = (await self._session.execute(stmt)).scalars().all()
+        return [self._to_domain(row) for row in rows]
+
+    async def count(self, criteria: OrderCriteria) -> int:
+        stmt = select(func.count()).select_from(OrderRow).where(*self._conditions(criteria))
+        return (await self._session.execute(stmt)).scalar_one()
+
+    @staticmethod
+    def _conditions(criteria: OrderCriteria) -> list[ColumnElement[bool]]:
+        """The SQL for a question. Rules about *what* a status means stay in the
+        domain; this only maps each answer to the columns that hold it."""
+        found: list[ColumnElement[bool]] = []
+        if criteria.payment_status is OrderPaymentStatus.PENDING:
+            found.append(OrderRow.status == OrderStatus.PENDING_PAYMENT.value)
+        elif criteria.payment_status is OrderPaymentStatus.CANCELLED:
+            found.append(OrderRow.status == OrderStatus.CANCELLED.value)
+        elif criteria.payment_status is OrderPaymentStatus.PAID:
+            found.append(
+                OrderRow.status.not_in(
+                    [OrderStatus.PENDING_PAYMENT.value, OrderStatus.CANCELLED.value]
+                )
+            )
+        if criteria.fulfillment_status is not None:
+            found.append(OrderRow.fulfillment_status == criteria.fulfillment_status.value)
+        if criteria.delivery_option:
+            found.append(OrderRow.delivery_option == criteria.delivery_option)
+        if criteria.query.strip():
+            needle = f"%{criteria.query.strip()}%"
+            found.append(
+                or_(
+                    OrderRow.reference.ilike(needle),
+                    OrderRow.contact_name.ilike(needle),
+                    OrderRow.contact_email.ilike(needle),
+                    OrderRow.contact_phone.ilike(needle),
+                )
+            )
+        if criteria.created_from is not None:
+            found.append(OrderRow.created_at >= criteria.created_from)
+        if criteria.created_before is not None:
+            found.append(OrderRow.created_at < criteria.created_before)
+        return found
 
     async def count_all(self, *, status: OrderStatus | None = None) -> int:
         stmt = select(func.count()).select_from(OrderRow)

@@ -21,13 +21,16 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+from datetime import tzinfo
 from decimal import Decimal
 
+from app.domains.admin.application.analytics import Period, SalesReport, build_report
 from app.domains.admin.domain.repositories import (
     AbstractOrderRepository,
     AbstractProductRepository,
     AbstractUserRepository,
 )
+from app.domains.orders.domain.criteria import OrderCriteria
 from app.domains.orders.domain.entities import Order
 from app.domains.orders.domain.enums import FulfillmentStatus, OrderStatus
 from app.domains.products.domain.entities import (
@@ -38,6 +41,7 @@ from app.domains.products.domain.entities import (
     ProductVariant,
     StockStatus,
 )
+from app.domains.products.domain.search import ProductCriteria, search
 from app.domains.users.domain.entities import User
 from app.shared.exceptions import ConflictError, NotFoundError, ValidationError
 from app.shared.pagination import Page, PaginationParams
@@ -109,6 +113,31 @@ class RestockCommand:
 
     size: str
     quantity: int
+
+
+@dataclass(frozen=True)
+class StockAdjustment:
+    """A correction to one size's stock count: by an amount, or to an amount.
+
+    Exactly one of ``delta`` (``-3`` removes three) and ``set_to`` (a stock-take
+    result) is given.
+    """
+
+    size: str
+    delta: int | None = None
+    set_to: int | None = None
+
+
+@dataclass(frozen=True)
+class StockReceipt:
+    """What an adjustment did, reported back so the caller need not re-read it."""
+
+    product_id: int
+    size: str
+    change: int
+    quantity: int
+    reserved: int
+    available: int
 
 
 @dataclass(frozen=True)
@@ -196,15 +225,62 @@ class AdminService:
         customers = CustomerStats(total=await self._users.count_all())
         return DashboardOverview(catalog=catalog, orders=orders, customers=customers)
 
-    async def list_orders(self, params: PaginationParams) -> Page[Order]:
-        """Every customer's orders, newest first — the shop's order ledger."""
-        items = await self._orders.list_all(limit=params.limit, offset=params.offset)
+    async def list_orders(
+        self, params: PaginationParams, criteria: OrderCriteria | None = None
+    ) -> Page[Order]:
+        """Every customer's orders, newest first — the shop's order ledger.
+
+        Optionally narrowed (by payment, fulfillment, delivery type, a search
+        word or a date range); ``total`` counts what matched, not the whole book.
+        """
+        criteria = criteria or OrderCriteria()
+        items = await self._orders.search(criteria, limit=params.limit, offset=params.offset)
         return Page(
             items=items,
             page=params.page,
             page_size=params.page_size,
-            total=await self._orders.count_all(),
+            total=await self._orders.count(criteria),
         )
+
+    async def list_products(
+        self,
+        params: PaginationParams,
+        criteria: ProductCriteria | None = None,
+        *,
+        active: bool | None = None,
+        stock: StockStatus | None = None,
+    ) -> Page[Product]:
+        """The whole catalog as the shop sees it — hidden products included.
+
+        The storefront's search and filters apply (so the admin screen finds
+        things the way a shopper would), plus the two questions only the shop asks:
+        is it on the shelf (``active``), and how is it stocked (``stock``).
+        """
+        found = search(
+            await self._products.list_catalog(include_inactive=True),
+            criteria or ProductCriteria(),
+        )
+        if active is not None:
+            found = [product for product in found if product.is_active is active]
+        if stock is not None:
+            found = [product for product in found if product.stock_status is stock]
+        return Page(
+            items=found[params.offset : params.offset + params.limit],
+            page=params.page,
+            page_size=params.page_size,
+            total=len(found),
+        )
+
+    async def analytics(self, period: Period, tz: tzinfo) -> SalesReport:
+        """Sales, accounting and operations for ``period``, against the one before."""
+        orders = await self._orders.search(
+            OrderCriteria(created_from=period.start(tz), created_before=period.end(tz))
+        )
+        before = period.previous()
+        previous = await self._orders.search(
+            OrderCriteria(created_from=before.start(tz), created_before=before.end(tz))
+        )
+        return build_report(orders, previous, period, tz)
 
     async def list_customers(self, params: PaginationParams) -> Page[User]:
         """Every registered customer, earliest first."""
@@ -322,6 +398,33 @@ class AdminService:
             product_id=product.id,
             size=variant.size,
             added=command.quantity,
+            available=variant.inventory.available,
+        )
+
+    async def adjust_stock(self, product_id: int, adjustment: StockAdjustment) -> StockReceipt:
+        """Correct one size's stock count, up or down.
+
+        The inventory refuses to go below what customers have already reserved,
+        so a correction can never oversell an order that has been promised.
+        """
+        if (adjustment.delta is None) == (adjustment.set_to is None):
+            raise ValidationError("Send exactly one of delta or set_to.")
+        product = await self._load_product(product_id)
+        variant = product.find_variant(adjustment.size)
+        if variant is None:
+            raise NotFoundError(f"'{product.name}' is not offered in size '{adjustment.size}'.")
+        before = variant.inventory.quantity
+        if adjustment.delta is not None:
+            variant.inventory.adjust(adjustment.delta)
+        else:
+            variant.inventory.set_quantity(adjustment.set_to)  # type: ignore[arg-type]
+        await self._save(product)
+        return StockReceipt(
+            product_id=product.id,
+            size=variant.size,
+            change=variant.inventory.quantity - before,
+            quantity=variant.inventory.quantity,
+            reserved=variant.inventory.reserved,
             available=variant.inventory.available,
         )
 

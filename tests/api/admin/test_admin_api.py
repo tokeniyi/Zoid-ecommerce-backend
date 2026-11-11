@@ -225,9 +225,12 @@ def test_the_admin_surface_is_exactly_what_was_promised() -> None:
     """The defined capabilities, and nothing published beside them."""
     assert {(method, path) for method, path in ADMIN_OPERATIONS} == {
         ("GET", f"{API}/admin/dashboard"),
+        ("GET", f"{API}/admin/analytics"),
+        ("GET", f"{API}/admin/products"),
         ("POST", f"{API}/admin/products"),
         ("PATCH", f"{API}/admin/products/{{product_id}}"),
         ("POST", f"{API}/admin/products/{{product_id}}/stock"),
+        ("PATCH", f"{API}/admin/products/{{product_id}}/stock"),
         ("GET", f"{API}/admin/orders"),
         ("PATCH", f"{API}/admin/orders/{{order_id}}/fulfillment"),
         ("GET", f"{API}/admin/users"),

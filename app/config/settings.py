@@ -74,6 +74,9 @@ class Settings(BaseSettings):
     payment_currency: str = "NGN"
     #: Charged per unit on a personalised jersey (name + number printing).
     customization_fee: Decimal = Decimal("2000")
+    #: The store's local time as minutes ahead of UTC (Nigeria: +1h, no daylight
+    #: saving). Decides which calendar day an order belongs to in sales reports.
+    store_utc_offset_minutes: int = 60
     # Where the provider's hosted checkout returns the customer to.
     # Default matches the Vite dev server (port 3000).
     payment_return_url: str = "http://localhost:3000/checkout"

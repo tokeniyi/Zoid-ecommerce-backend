@@ -56,6 +56,7 @@ def test_there_is_an_admin_module_to_guard() -> None:
         "api/router.py",
         "api/schemas.py",
         "application/__init__.py",
+        "application/analytics.py",
         "application/service.py",
         "domain/__init__.py",
         "domain/repositories.py",
@@ -119,6 +120,7 @@ def test_every_admin_route_sits_under_the_guarded_prefix() -> None:
     paths = {route.path for route in admin_router.routes}
     assert paths == {
         "/admin/dashboard",
+        "/admin/analytics",
         "/admin/products",
         "/admin/products/{product_id}",
         "/admin/products/{product_id}/stock",

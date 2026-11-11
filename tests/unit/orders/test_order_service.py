@@ -19,6 +19,7 @@ from app.domains.orders.application.service import (
     OrderService,
     new_order_reference,
 )
+from app.domains.orders.domain.criteria import OrderCriteria
 from app.domains.orders.domain.entities import Order
 from app.domains.orders.domain.enums import OrderStatus
 from app.domains.orders.domain.repositories import AbstractOrderRepository
@@ -86,6 +87,14 @@ class InMemoryOrderRepository(AbstractOrderRepository):
 
     async def list_all(self, *, limit: int, offset: int) -> list[Order]:  # pragma: no cover
         return list(self._store.values())[offset : offset + limit]
+
+    async def search(  # pragma: no cover
+        self, criteria: OrderCriteria, *, limit: int | None = None, offset: int = 0
+    ) -> list[Order]:
+        return [o for o in self._store.values() if criteria.matches(o)]
+
+    async def count(self, criteria: OrderCriteria) -> int:  # pragma: no cover
+        return len(await self.search(criteria))
 
     async def count_all(self, *, status: OrderStatus | None = None) -> int:  # pragma: no cover
         return sum(1 for o in self._store.values() if status is None or o.status is status)

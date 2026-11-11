@@ -163,10 +163,13 @@ directly — bypassing any frontend — gets 401 (no session) or 403 (wrong role
 
 | Method | Path | Auth | Notes |
 | --- | --- | --- | --- |
-| GET | `/admin/dashboard` | admin | Store-wide metrics. |
+| GET | `/admin/dashboard` | admin | Store-wide counts. |
+| GET | `/admin/analytics` | admin | Revenue, accounting, operations, best sellers and a daily trend for `date_from`..`date_to` (default: the current Mon–Sun week, store time; max 366 days), each compared with the period of equal length before it. **Revenue is money collected (paid orders)**; unpaid orders appear as `outstanding`, cancelled ones as neither. An order belongs to the day it was placed. Refunds are not netted off yet. |
+| GET | `/admin/products` | admin | The whole catalog, **hidden products included**. Takes the storefront's `q`/filters/`sort` plus `active` (true/false) and `stock` (`in_stock`/`low_stock`/`out_of_stock`). |
 | POST | `/admin/products` | admin | Create a product. |
-| PATCH | `/admin/products/{product_id}` | admin | Edit a product (including reversible `is_active`). |
-| POST | `/admin/products/{product_id}/stock` | admin | Restock a variant. |
-| GET | `/admin/orders` | admin | The order book. |
+| PATCH | `/admin/products/{product_id}` | admin | Edit a product. `is_active: false` archives it (gone from the storefront, list and product page); `true` restores it. |
+| POST | `/admin/products/{product_id}/stock` | admin | Restock a variant (adds units). |
+| PATCH | `/admin/products/{product_id}/stock` | admin | Correct a size's stock **up or down**: `{size, delta}` (`-3` removes three) or `{size, set_to}` (a stock-take). Never below the units already reserved for customers' orders (`422`). |
+| GET | `/admin/orders` | admin | The order book, newest first. Filters: `payment_status`, `fulfillment_status`, `delivery_option`, `q` (reference / name / email / phone), `date_from`, `date_to`. `total` counts what matched. |
 | PATCH | `/admin/orders/{order_id}/fulfillment` | admin | Body `{status?, terminal?}`: move a **paid** order between `processing` / `in_transit` / `delivered` (any stage may be corrected), and/or confirm the GUO terminal of a pickup order. An unpaid order is `409`; an empty body is `422`. Nothing is saved unless every part is accepted. |
 | GET | `/admin/users` | admin | The customer list. |

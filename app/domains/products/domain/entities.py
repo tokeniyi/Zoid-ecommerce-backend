@@ -104,6 +104,34 @@ class Inventory:
         self.quantity += quantity
         self.validate()
 
+    def adjust(self, delta: int) -> None:
+        """Move the stock count by ``delta`` units (positive adds, negative removes).
+
+        The shop uses this to correct the count — damaged or miscounted units,
+        a lost box — so it can go down as well as up. What it can never do is
+        take stock from under customers who already have units reserved: those are
+        promised, and counting them out would oversell them.
+        """
+        if delta == 0:
+            raise ValidationError("A stock adjustment must change the count.")
+        wanted = self.quantity + delta
+        if wanted < 0:
+            raise ValidationError("Stock cannot go below zero.")
+        if wanted < self.reserved:
+            raise ValidationError(
+                f"Stock cannot go below the {self.reserved} unit(s) already reserved "
+                "for customers' orders."
+            )
+        self.quantity = wanted
+
+    def set_quantity(self, quantity: int) -> None:
+        """Set the count outright (a stock-take), under the same rules as :meth:`adjust`.
+
+        Confirming the count that is already there is fine: it is a no-op.
+        """
+        if quantity != self.quantity:
+            self.adjust(quantity - self.quantity)
+
     def validate(self) -> None:
         if self.quantity < 0:
             raise ValidationError("Inventory quantity cannot be negative.")

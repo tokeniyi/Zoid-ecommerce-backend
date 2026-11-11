@@ -65,16 +65,18 @@ from app.integrations.payments import build_payment_gateway, build_webhook_adapt
 from app.integrations.payments.paystack import PaystackPaymentGateway
 from app.security.authentication.session import session_strategy_from_settings
 from app.shared.exceptions import ProviderNotConfiguredError
+from tests.support.delivery import CHECKOUT_DELIVERY, STANDARD_FEE
 from tests.unit.payments.test_order_notification import RecordingSender
 
-pytestmark = pytest.mark.database
+pytestmark = [pytest.mark.database, pytest.mark.usefixtures("basic_delivery_rates")]
 
 _settings = get_settings()
 API = _settings.api_v1_prefix
 COOKIE = _settings.cookie_name
 PASSWORD = "Sup3rSecret!"
 PRICE = Decimal("42000.00")
-PRICE_KOBO = 4200000
+#: What the customer pays for one shirt: the goods plus the standard delivery fee.
+PRICE_KOBO = 4450000
 WEBHOOK_SECRET = "whsec_test_at_the_endpoint"
 #: Whichever e-mail the store has told us to notify. The provider behind it is
 #: always a double in these tests.
@@ -84,8 +86,7 @@ CHECKOUT = {
     "contact_name": "Ada Zoid",
     "contact_email": "ada@example.com",
     "contact_phone": "+234 800 000 0000",
-    "address_line": "12 Concrete Road",
-    "city_state": "Lagos State",
+    "delivery": CHECKOUT_DELIVERY,
 }
 
 
@@ -117,7 +118,7 @@ class ScriptedGateway(AbstractPaymentGateway):
             status=PaymentStatus.PAID,
             transaction_reference=reference,
             provider_reference=f"prov-{reference}",
-            amount=PRICE,
+            amount=PRICE + STANDARD_FEE,  # what the order costs: goods + delivery
         )
 
     async def refund_payment(self, request: RefundRequest) -> RefundResult:
@@ -294,7 +295,7 @@ async def test_initiate_verify_and_refund_flow(
     assert body["success"] is True
     assert body["status"] == "pending"
     assert body["payment_id"].startswith("PAY-")
-    assert body["amount"] == "42000.00"
+    assert body["amount"] == "44500.00"  # goods 42,000 + delivery 2,500
     assert body["provider"] == "scripted"
     assert body["next_action"]["type"] == "redirect"
     assert body["next_action"]["url"].startswith("https://provider.example/checkout/")

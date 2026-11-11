@@ -141,6 +141,31 @@ def _database_isolation(request: pytest.FixtureRequest) -> None:
 
 
 @pytest.fixture
+def basic_delivery_rates(_database_isolation: None) -> None:
+    """Put the minimal delivery rate table (``tests.support.delivery``) in place.
+
+    Delivery is priced from the shop's rate rows, so tests that check an order out
+    ask for this; tests about the rate table itself do not, and start empty.
+    """
+    from tests.support.delivery import BASIC_RATES
+
+    rows = ", ".join(
+        "('{key}', '{option}', {state}, {fee})".format(
+            key=rate.key,
+            option=rate.option.value,
+            state=f"'{rate.state}'" if rate.state else "NULL",
+            fee=rate.fee,
+        )
+        for rate in BASIC_RATES
+    )
+    asyncio.run(
+        _execute(
+            "INSERT INTO delivery_rates (key, option, state, fee) VALUES " + rows
+        )
+    )
+
+
+@pytest.fixture
 def client() -> Iterator[TestClient]:
     from app.main import app
 

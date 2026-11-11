@@ -98,14 +98,40 @@ request — never a caller-supplied cart id — so cross-cart access is impossib
 | POST | `/wishlist/items` | session | Save a product by slug. |
 | DELETE | `/wishlist/items/{product_slug}` | session | Remove a saved product. |
 
-## Orders
+## Delivery
 
-Checkout is authenticated and reads the caller's **server-side** cart; totals
-are computed from authoritative server prices, never from the client.
+Delivery is priced by the **server** from the shop's rate table; a request names
+*where* the order should go, never an amount.
 
 | Method | Path | Auth | Notes |
 | --- | --- | --- | --- |
-| POST | `/orders` | session | Check out the cart into a new order (`201`). New orders start `PENDING_PAYMENT`. |
+| POST | `/delivery/quote` | none | The fee for a destination. A place the shop does not serve is a normal answer (`support_required: true`, `fee: null`), not an error. |
+
+Request (`option` decides which other fields are needed):
+
+| `option` | Required fields | Notes |
+| --- | --- | --- |
+| `standard` | `address`, `city`, `state` — **or** `university` + `hostel_room` | Hand delivery. Lagos, Ogun and Port Harcourt only. A campus delivery is flagged `is_student`. |
+| `express` | `address`, `city`, `state` | Prioritised hand delivery, same area. |
+| `pickup` | `state`, `terminal` | Free, any state. A terminal the shop has not verified is accepted with `terminal_pending: true`. |
+| `enquiry` | — | Never priced (`support_required: true`); cannot be checked out. |
+
+The most specific matching rate wins: terminal, then university, then city, then
+state. With no matching rate there is no price, never a guess. Rates are loaded with
+`python -m app.cli.seed_delivery` (see the README); with an empty table every place
+answers `support_required`.
+
+## Orders
+
+Checkout is authenticated and reads the caller's **server-side** cart; every amount
+is computed by the server from authoritative prices, never from the client:
+`total = subtotal (goods) + customization_total + delivery.fee`. Personalisation is
+charged per unit (`CUSTOMIZATION_FEE`, default 2,000) on products whose style is
+`Jersey`, and is snapshotted on each line as `customization_fee`.
+
+| Method | Path | Auth | Notes |
+| --- | --- | --- | --- |
+| POST | `/orders` | session | Check out the cart into a new order (`201`). Body: `contact_name`, `contact_email`, `contact_phone`, `delivery` (see above), optional `notes`. A destination that is not priced (unserved place, `enquiry`) is refused with `422` before any stock is reserved. New orders start `PENDING_PAYMENT`. |
 | GET | `/orders` | session | The caller's orders, newest first. |
 | GET | `/orders/{order_id}` | session | One of the caller's orders (someone else's is 404). |
 

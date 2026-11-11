@@ -11,6 +11,7 @@ from decimal import Decimal
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import text
 
 from app.cli.create_admin import AdminOutcome, ensure_admin, validated_email
 from app.cli.seed_catalog import build_product, load_catalog, seed
@@ -19,6 +20,7 @@ from app.infrastructure.persistence.sqlalchemy.session import (
     build_sessionmaker,
     create_engine_from_url,
 )
+from app.infrastructure.persistence.sqlalchemy.unit_of_work import SqlAlchemyUnitOfWork
 from app.shared.exceptions import ValidationError
 
 pytestmark = pytest.mark.database
@@ -181,3 +183,43 @@ def test_an_email_the_login_endpoint_would_refuse_is_refused_here_too() -> None:
 
 def test_seed_prices_are_decimals_not_floats() -> None:
     assert all(isinstance(Decimal(entry["price"]), Decimal) for entry in load_catalog())
+
+
+# ── delivery rates seed ─────────────────────────────────────────────────
+
+
+async def test_delivery_seed_is_idempotent_and_leaves_shop_prices_alone(
+    client: TestClient,
+) -> None:
+    from app.cli import seed_delivery
+
+    rates = seed_delivery.build_rates(seed_delivery.load_data())
+
+    first = await seed_delivery.seed(rates)
+    second = await seed_delivery.seed(rates)
+
+    assert (first.created, first.existing) == (len(rates), 0)
+    assert (second.created, second.existing) == (0, len(rates))
+
+    # The shop raises the Lagos price directly; a re-seed must not undo it.
+    engine = create_engine_from_url()
+    try:
+        async with SqlAlchemyUnitOfWork(build_sessionmaker(engine)) as uow:
+            row = await uow.session.execute(
+                text(
+                    "UPDATE delivery_rates SET fee = 3000 "
+                    "WHERE option = 'standard' AND state = 'Lagos State' AND city IS NULL"
+                    " AND university IS NULL"
+                )
+            )
+            assert row.rowcount == 1
+            await uow.commit()
+    finally:
+        await engine.dispose()
+    await seed_delivery.seed(rates)
+
+    quote = client.post(
+        f"{API}/delivery/quote",
+        json={"option": "standard", "state": "Lagos", "city": "Yaba", "address": "1 Road"},
+    ).json()
+    assert quote["fee"] == "3000.00"

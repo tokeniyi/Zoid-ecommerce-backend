@@ -13,6 +13,7 @@ without touching business logic.
 
 from __future__ import annotations
 
+from decimal import Decimal
 from functools import lru_cache
 
 from pydantic import Field, model_validator
@@ -71,6 +72,8 @@ class Settings(BaseSettings):
     stripe_secret_key: str = Field(default="", repr=False)
     stripe_webhook_secret: str = Field(default="", repr=False)
     payment_currency: str = "NGN"
+    #: Charged per unit on a personalised jersey (name + number printing).
+    customization_fee: Decimal = Decimal("2000")
     # Where the provider's hosted checkout returns the customer to.
     # Default matches the Vite dev server (port 3000).
     payment_return_url: str = "http://localhost:3000/checkout"

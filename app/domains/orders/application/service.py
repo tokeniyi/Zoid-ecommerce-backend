@@ -13,9 +13,12 @@ The whole flow runs inside the request's unit of work, so a failure at any step
 from __future__ import annotations
 
 from dataclasses import dataclass
+from decimal import Decimal
 from uuid import uuid4
 
 from app.domains.cart.domain.repositories import AbstractCartRepository
+from app.domains.delivery.application.service import DeliveryService
+from app.domains.delivery.domain.entities import DeliveryDetails, DeliveryOption, DeliveryQuote
 from app.domains.orders.domain.entities import Order, OrderItem
 from app.domains.orders.domain.enums import OrderStatus
 from app.domains.orders.domain.repositories import AbstractOrderRepository
@@ -30,16 +33,33 @@ def new_order_reference() -> str:
     return f"{_REFERENCE_PREFIX}{uuid4().hex[:8].upper()}"
 
 
+#: Personalisation is charged on products of this style only, as on the storefront.
+_PERSONALISED_STYLE = "jersey"
+
+
 @dataclass(frozen=True)
 class CheckoutCommand:
-    """Delivery/contact details collected on the checkout form."""
+    """Contact and delivery details collected on the checkout form.
+
+    There is no amount anywhere in it: delivery is priced by the server from
+    where the order is going, and the goods from the catalog.
+    """
 
     contact_name: str
     contact_email: str
     contact_phone: str
-    address_line: str
-    city_state: str
+    delivery: DeliveryDetails
     notes: str | None = None
+
+
+def describe_destination(details: DeliveryDetails, quote: DeliveryQuote) -> tuple[str, str]:
+    """The ``(address_line, city_state)`` a packer reads off the order."""
+    if details.option is DeliveryOption.PICKUP:
+        return f"GUO terminal pickup: {details.terminal.strip()}", quote.state
+    if quote.university:
+        return f"{quote.university} — {details.hostel_room.strip()}", quote.state
+    city_state = ", ".join(part for part in (quote.city, quote.state) if part)
+    return details.address.strip(), city_state
 
 
 class OrderService:
@@ -49,10 +69,14 @@ class OrderService:
         orders: AbstractOrderRepository,
         carts: AbstractCartRepository,
         products: AbstractProductRepository,
+        delivery: DeliveryService,
+        customization_fee: Decimal = Decimal("0"),
     ) -> None:
         self._orders = orders
         self._carts = carts
         self._products = products
+        self._delivery = delivery
+        self._customization_fee = customization_fee
 
     async def create_from_cart(
         self, *, user_id: int, checkout: CheckoutCommand
@@ -61,6 +85,15 @@ class OrderService:
         cart = await self._carts.get_by_user_id(user_id)
         if cart is None or not cart.items:
             raise ValidationError("Cannot place an order with an empty cart")
+
+        # Price delivery first: a place the shop does not serve is refused before
+        # any stock is reserved. (An "enquiry" is arranged with the shop, never
+        # checked out, because there is no fee to charge.)
+        quote = await self._delivery.quote(checkout.delivery)
+        if not quote.is_priced:
+            raise ValidationError(
+                quote.message or "Delivery to this place has to be arranged with us first."
+            )
 
         items: list[OrderItem] = []
         for line in cart.items:
@@ -96,9 +129,17 @@ class OrderService:
                     currency=cart.currency,
                     image=product.primary_image or line.image,
                     customization=line.customization,
+                    customization_fee=(
+                        self._customization_fee
+                        if line.customization
+                        and product.style.strip().casefold() == _PERSONALISED_STYLE
+                        else Decimal("0")
+                    ),
                 )
             )
 
+        details = checkout.delivery
+        address_line, city_state = describe_destination(details, quote)
         order = Order(
             id=0,
             reference=new_order_reference(),
@@ -108,10 +149,19 @@ class OrderService:
             contact_name=checkout.contact_name,
             contact_email=checkout.contact_email,
             contact_phone=checkout.contact_phone,
-            address_line=checkout.address_line,
-            city_state=checkout.city_state,
+            address_line=address_line,
+            city_state=city_state,
             notes=checkout.notes,
             items=items,
+            delivery_fee=quote.fee or Decimal("0"),
+            delivery_option=quote.option.value,
+            delivery_state=quote.state,
+            delivery_city=quote.city,
+            delivery_university=quote.university,
+            delivery_hostel_room=details.hostel_room.strip() if quote.university else "",
+            delivery_terminal=quote.terminal,
+            delivery_terminal_pending=quote.terminal_pending,
+            delivery_note=details.note.strip(),
         )
         order.validate()
 

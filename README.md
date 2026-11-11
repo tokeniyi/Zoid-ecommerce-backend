@@ -57,6 +57,7 @@ Key variables (see `.env.example` for the full, annotated list):
 | `JWT_SECRET` | Session signing key |
 | `PAYSTACK_SECRET_KEY` / `PAYSTACK_WEBHOOK_SECRET` | Paystack credentials + webhook signing |
 | `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` | Stripe credentials + webhook signing |
+| `CUSTOMIZATION_FEE` | Per-unit charge for a personalised jersey (default `2000`) |
 | `RESEND_API_KEY`, `STORE_OWNER_EMAIL`, `EMAIL_FROM` | Email provider + owner notification |
 | `CLOUDINARY_*` / `S3_*` | Storage provider credentials |
 | `REDIS_URL`, `RATE_LIMIT_*` | Rate limiting |
@@ -86,8 +87,15 @@ uv run python -m app.cli.seed_catalog                 # load the storefront's 21
 uv run python -m app.cli.seed_catalog --update        # refresh details/prices (never stock)
 uv run python -m app.cli.seed_catalog --image-base-url https://cdn.example.com
 
+uv run python -m app.cli.seed_delivery                # delivery prices and service area
+
 uv run python -m app.cli.create_admin --email owner@yourdomain.com --name "Owner"
 ```
+
+`seed_delivery` installs the storefront's current service area and prices
+(hand delivery in Lagos, Ogun and Port Harcourt, free GUO terminal pickup, listed
+campuses). It only adds missing rates, so a price you have changed is kept. Without
+it every destination is answered "ask the shop" and no order can be checked out.
 
 `create_admin` asks for the password (hidden) or reads `ZOID_ADMIN_PASSWORD`; it is
 never a command-line argument. For an email that already has an account it promotes

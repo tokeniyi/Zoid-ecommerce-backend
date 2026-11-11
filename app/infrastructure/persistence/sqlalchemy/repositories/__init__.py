@@ -9,6 +9,9 @@ from app.infrastructure.persistence.sqlalchemy.repositories.category import (
 from app.infrastructure.persistence.sqlalchemy.repositories.credential import (
     SqlCredentialsRepository,
 )
+from app.infrastructure.persistence.sqlalchemy.repositories.delivery_rate import (
+    SqlDeliveryRateRepository,
+)
 from app.infrastructure.persistence.sqlalchemy.repositories.order import (
     SqlOrderRepository,
 )
@@ -35,6 +38,7 @@ __all__ = [
     "SqlCartRepository",
     "SqlCategoryRepository",
     "SqlCredentialsRepository",
+    "SqlDeliveryRateRepository",
     "SqlOrderRepository",
     "SqlProductRepository",
     "SqlRefundRepository",

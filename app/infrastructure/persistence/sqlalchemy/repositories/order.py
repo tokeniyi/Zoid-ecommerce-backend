@@ -30,6 +30,8 @@ class SqlOrderRepository(AbstractOrderRepository):
             currency=order.currency,
             subtotal=order.subtotal,
             total=order.total,
+            customization_total=order.customization_total,
+            delivery_fee=order.delivery_fee,
             item_count=order.item_count,
             contact_name=order.contact_name,
             contact_email=order.contact_email,
@@ -37,6 +39,14 @@ class SqlOrderRepository(AbstractOrderRepository):
             address_line=order.address_line,
             city_state=order.city_state,
             notes=order.notes,
+            delivery_option=order.delivery_option,
+            delivery_state=order.delivery_state,
+            delivery_city=order.delivery_city,
+            delivery_university=order.delivery_university,
+            delivery_hostel_room=order.delivery_hostel_room,
+            delivery_terminal=order.delivery_terminal,
+            delivery_terminal_pending=order.delivery_terminal_pending,
+            delivery_note=order.delivery_note,
         )
         for item in order.items:
             row.items.append(self._to_row(item))
@@ -116,6 +126,7 @@ class SqlOrderRepository(AbstractOrderRepository):
             image=item.image,
             currency=item.currency,
             customization=item.customization,
+            customization_fee=item.customization_fee,
         )
 
     @staticmethod
@@ -133,6 +144,15 @@ class SqlOrderRepository(AbstractOrderRepository):
             city_state=row.city_state,
             notes=row.notes,
             created_at=row.created_at,
+            delivery_fee=row.delivery_fee,
+            delivery_option=row.delivery_option,
+            delivery_state=row.delivery_state,
+            delivery_city=row.delivery_city,
+            delivery_university=row.delivery_university,
+            delivery_hostel_room=row.delivery_hostel_room,
+            delivery_terminal=row.delivery_terminal,
+            delivery_terminal_pending=row.delivery_terminal_pending,
+            delivery_note=row.delivery_note,
             items=[
                 OrderItem(
                     id=item.id,
@@ -145,6 +165,7 @@ class SqlOrderRepository(AbstractOrderRepository):
                     image=item.image,
                     currency=item.currency,
                     customization=item.customization,
+                    customization_fee=item.customization_fee,
                 )
                 for item in row.items
             ],

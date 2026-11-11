@@ -6,18 +6,21 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
+from app.domains.delivery.api.schemas import DeliveryRequest
 from app.domains.orders.domain.entities import Order, OrderItem
 from app.shared.money import serialize_money
 
 
 class CreateOrderRequest(BaseModel):
-    """Delivery details collected by the checkout form."""
+    """Contact and delivery details collected by the checkout form.
+
+    No amounts: delivery and personalisation are priced by the server.
+    """
 
     contact_name: str = Field(min_length=1, max_length=120)
     contact_email: str = Field(min_length=3, max_length=320)
     contact_phone: str = Field(min_length=6, max_length=40)
-    address_line: str = Field(min_length=3, max_length=300)
-    city_state: str = Field(min_length=1, max_length=120)
+    delivery: DeliveryRequest
     notes: str | None = Field(default=None, max_length=500)
 
 
@@ -32,6 +35,20 @@ class OrderItemResponse(BaseModel):
     image: str
     currency: str
     customization: str
+    customization_fee: str
+
+
+class OrderDeliveryResponse(BaseModel):
+    option: str
+    fee: str
+    state: str
+    city: str
+    university: str
+    hostel_room: str
+    terminal: str
+    terminal_pending: bool
+    note: str
+    is_student: bool
 
 
 class OrderResponse(BaseModel):
@@ -39,9 +56,12 @@ class OrderResponse(BaseModel):
     reference: str
     status: str
     currency: str
+    #: The goods alone; ``total`` = subtotal + customization_total + delivery.fee.
     subtotal: str
+    customization_total: str
     total: str
     count: int
+    delivery: OrderDeliveryResponse
     contact_name: str
     contact_email: str
     contact_phone: str
@@ -74,6 +94,7 @@ def serialize_item(item: OrderItem) -> OrderItemResponse:
         image=item.image,
         currency=item.currency,
         customization=item.customization,
+        customization_fee=serialize_money(item.customization_fee),
     )
 
 
@@ -84,8 +105,21 @@ def serialize_order(order: Order) -> OrderResponse:
         status=order.status.value,
         currency=order.currency,
         subtotal=serialize_money(order.subtotal),
+        customization_total=serialize_money(order.customization_total),
         total=serialize_money(order.total),
         count=order.item_count,
+        delivery=OrderDeliveryResponse(
+            option=order.delivery_option,
+            fee=serialize_money(order.delivery_fee),
+            state=order.delivery_state,
+            city=order.delivery_city,
+            university=order.delivery_university,
+            hostel_room=order.delivery_hostel_room,
+            terminal=order.delivery_terminal,
+            terminal_pending=order.delivery_terminal_pending,
+            note=order.delivery_note,
+            is_student=order.is_student,
+        ),
         contact_name=order.contact_name,
         contact_email=order.contact_email,
         contact_phone=order.contact_phone,

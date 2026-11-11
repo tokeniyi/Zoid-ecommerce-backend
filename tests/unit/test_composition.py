@@ -56,6 +56,7 @@ MOUNTED_DOMAINS: frozenset[str] = frozenset(
         "auth",
         "cart",
         "categories",
+        "delivery",
         "orders",
         "payments",
         "products",

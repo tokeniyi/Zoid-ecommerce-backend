@@ -39,8 +39,7 @@ async def create_order(
             contact_name=body.contact_name,
             contact_email=body.contact_email,
             contact_phone=body.contact_phone,
-            address_line=body.address_line,
-            city_state=body.city_state,
+            delivery=body.delivery.to_details(),
             notes=body.notes,
         ),
     )

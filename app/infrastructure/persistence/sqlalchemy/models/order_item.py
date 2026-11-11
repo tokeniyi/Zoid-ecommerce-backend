@@ -39,6 +39,10 @@ class OrderItemRow(Base):
     customization: Mapped[str] = mapped_column(
         String(100), nullable=False, default="", server_default=text("''")
     )
+    # Unit fee charged for the personalisation, snapshotted at checkout.
+    customization_fee: Mapped[Decimal] = mapped_column(
+        Numeric(12, 2), nullable=False, default=Decimal("0"), server_default=text("0")
+    )
 
     order: Mapped[OrderRow] = relationship(back_populates="items")
 

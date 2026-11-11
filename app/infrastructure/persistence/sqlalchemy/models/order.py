@@ -6,7 +6,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String, Text, func, text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Numeric, String, Text, func, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.infrastructure.persistence.sqlalchemy.session import Base
@@ -44,6 +44,12 @@ class OrderRow(Base):
         Numeric(12, 2), nullable=False, default=Decimal("0")
     )
     item_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    customization_total: Mapped[Decimal] = mapped_column(
+        Numeric(12, 2), nullable=False, default=Decimal("0"), server_default=text("0")
+    )
+    delivery_fee: Mapped[Decimal] = mapped_column(
+        Numeric(12, 2), nullable=False, default=Decimal("0"), server_default=text("0")
+    )
 
     contact_name: Mapped[str] = mapped_column(String(120), nullable=False)
     contact_email: Mapped[str] = mapped_column(String(320), nullable=False)
@@ -51,6 +57,31 @@ class OrderRow(Base):
     address_line: Mapped[str] = mapped_column(String(300), nullable=False)
     city_state: Mapped[str] = mapped_column(String(120), nullable=False, default="")
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    delivery_option: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="", server_default=text("''")
+    )
+    delivery_state: Mapped[str] = mapped_column(
+        String(80), nullable=False, default="", server_default=text("''")
+    )
+    delivery_city: Mapped[str] = mapped_column(
+        String(120), nullable=False, default="", server_default=text("''")
+    )
+    delivery_university: Mapped[str] = mapped_column(
+        String(200), nullable=False, default="", server_default=text("''")
+    )
+    delivery_hostel_room: Mapped[str] = mapped_column(
+        String(120), nullable=False, default="", server_default=text("''")
+    )
+    delivery_terminal: Mapped[str] = mapped_column(
+        String(200), nullable=False, default="", server_default=text("''")
+    )
+    delivery_terminal_pending: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=text("false")
+    )
+    delivery_note: Mapped[str] = mapped_column(
+        String(500), nullable=False, default="", server_default=text("''")
+    )
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

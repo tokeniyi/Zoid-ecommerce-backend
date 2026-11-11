@@ -34,10 +34,17 @@ class OrderItem:
     image: str = ""
     #: Personalisation copied from the cart line ("" when none).
     customization: str = ""
+    #: What personalising *one* unit cost at checkout (0 when not personalised or
+    #: when the product is not charged for it). A snapshot, like the unit price.
+    customization_fee: Decimal = Decimal("0")
 
     @property
     def line_total(self) -> Decimal:
         return self.unit_price * self.quantity
+
+    @property
+    def customization_total(self) -> Decimal:
+        return self.customization_fee * self.quantity
 
     def validate(self) -> None:
         if not self.product_slug:
@@ -67,15 +74,36 @@ class Order:
     notes: str | None = None
     items: list[OrderItem] = field(default_factory=list)
     created_at: datetime | None = None
+    #: What delivery cost, as the server priced it at checkout.
+    delivery_fee: Decimal = Decimal("0")
+    # How the order is to reach the customer (see the delivery domain).
+    delivery_option: str = ""
+    delivery_state: str = ""
+    delivery_city: str = ""
+    delivery_university: str = ""
+    delivery_hostel_room: str = ""
+    delivery_terminal: str = ""
+    delivery_terminal_pending: bool = False
+    delivery_note: str = ""
 
     @property
     def subtotal(self) -> Decimal:
+        """The goods alone, before personalisation and delivery."""
         return sum((item.line_total for item in self.items), Decimal("0"))
 
-    #: Shipping is not priced yet, so the amount due equals the goods subtotal.
+    @property
+    def customization_total(self) -> Decimal:
+        return sum((item.customization_total for item in self.items), Decimal("0"))
+
     @property
     def total(self) -> Decimal:
-        return self.subtotal
+        """What the customer pays: goods + personalisation + delivery."""
+        return self.subtotal + self.customization_total + self.delivery_fee
+
+    @property
+    def is_student(self) -> bool:
+        """Delivered to a campus."""
+        return bool(self.delivery_university)
 
     @property
     def item_count(self) -> int:
@@ -109,6 +137,8 @@ class Order:
             raise ValidationError("Order requires a reference")
         if self.user_id is None:
             raise ValidationError("Order requires an owning user")
+        if self.delivery_fee < 0:
+            raise ValidationError("Delivery fee cannot be negative")
         if not self.contact_name:
             raise ValidationError("Order requires a contact name")
         if not self.contact_email:

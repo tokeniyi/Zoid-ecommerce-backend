@@ -26,8 +26,9 @@ from app.infrastructure.persistence.sqlalchemy.session import (
     create_engine_from_url,
 )
 from app.infrastructure.persistence.sqlalchemy.unit_of_work import SqlAlchemyUnitOfWork
+from tests.support.delivery import CHECKOUT_DELIVERY
 
-pytestmark = pytest.mark.database
+pytestmark = [pytest.mark.database, pytest.mark.usefixtures("basic_delivery_rates")]
 
 _settings = get_settings()
 API = _settings.api_v1_prefix
@@ -39,8 +40,7 @@ CHECKOUT = {
     "contact_name": "Ada Zoid",
     "contact_email": "ada@example.com",
     "contact_phone": "+234 800 000 0000",
-    "address_line": "12 Concrete Road, Yaba",
-    "city_state": "Lagos State",
+    "delivery": CHECKOUT_DELIVERY,
     "notes": "Leave with the porter",
 }
 
@@ -115,7 +115,10 @@ async def test_checkout_creates_pending_payment_order(client: TestClient) -> Non
     # Created as unpaid: success here never means "paid".
     assert order["status"] == "PENDING_PAYMENT"
     assert order["reference"].startswith("ZD-")
-    assert order["total"] == "84000.00"
+    assert order["subtotal"] == "84000.00"  # the goods alone
+    assert order["delivery"]["fee"] == "2500.00"
+    assert order["customization_total"] == "0.00"
+    assert order["total"] == "86500.00"  # goods + delivery
     assert order["count"] == 2
     assert order["contact_email"] == CHECKOUT["contact_email"]
     assert order["notes"] == CHECKOUT["notes"]
@@ -177,7 +180,9 @@ async def test_checkout_details_are_validated(client: TestClient) -> None:
     _add_to_cart(client, session, slug)
 
     assert _checkout(client, session, contact_name="").status_code == 422
-    assert _checkout(client, session, address_line="").status_code == 422
+    assert _checkout(
+        client, session, delivery={**CHECKOUT_DELIVERY, "address": ""}
+    ).status_code == 422
     # The failed attempts left no order behind; a valid one still succeeds.
     assert _checkout(client, session).status_code == 201
 

@@ -37,8 +37,9 @@ from app.infrastructure.persistence.sqlalchemy.session import (
 from app.infrastructure.persistence.sqlalchemy.unit_of_work import SqlAlchemyUnitOfWork
 from app.main import app
 from app.security.authentication.session import session_strategy_from_settings
+from tests.support.delivery import CHECKOUT_DELIVERY
 
-pytestmark = pytest.mark.database
+pytestmark = [pytest.mark.database, pytest.mark.usefixtures("basic_delivery_rates")]
 
 _settings = get_settings()
 API = _settings.api_v1_prefix
@@ -50,8 +51,7 @@ CHECKOUT = {
     "contact_name": "Ada Zoid",
     "contact_email": "ada@example.com",
     "contact_phone": "+234 800 000 0000",
-    "address_line": "12 Concrete Road, Yaba",
-    "city_state": "Lagos State",
+    "delivery": CHECKOUT_DELIVERY,
 }
 
 #: Keys a path item may carry that are not HTTP operations.
@@ -594,12 +594,12 @@ async def test_the_admin_sees_the_order_book_as_the_store_keeps_it(
     seen = find()
     assert seen["status"] == "PENDING_PAYMENT"
     assert seen["reference"] == order["reference"]
-    assert seen["total"] == "117000.00"
+    assert seen["total"] == "119500.00"  # 2 x 58,500 + delivery 2,500
     assert seen["count"] == 2
     # The shop needs the delivery, not just the money.
     assert seen["contact_name"] == CHECKOUT["contact_name"]
     assert seen["contact_email"] == CHECKOUT["contact_email"]
-    assert seen["address_line"] == CHECKOUT["address_line"]
+    assert seen["address_line"] == CHECKOUT_DELIVERY["address"]
     assert seen["items"][0]["product_slug"] == seeded.slug
 
     await _mark_paid(order["id"])

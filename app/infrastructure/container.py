@@ -12,9 +12,12 @@ from collections.abc import AsyncIterator
 from fastapi import Depends
 
 from app.config import get_settings
+from app.domains.admin.application.images import ProductImageService
 from app.domains.admin.application.service import AdminService
+from app.domains.archives.application.service import ArchiveService
 from app.domains.auth.application.service import AuthService
 from app.domains.cart.application.service import CartService
+from app.domains.delivery.application.service import DeliveryService
 from app.domains.orders.application.service import OrderService
 from app.domains.payments.application.notifications import PaidOrderNotifier
 from app.domains.payments.application.service import PaymentService
@@ -121,6 +124,20 @@ async def get_cart_service(
     return CartService(carts=uow.carts, products=uow.products)
 
 
+async def get_delivery_service(
+    uow: AbstractUnitOfWork = Depends(get_unit_of_work),
+) -> DeliveryService:
+    """The delivery quoting use-case orchestrator."""
+    return DeliveryService(rates=uow.delivery_rates)
+
+
+async def get_archive_service(
+    uow: AbstractUnitOfWork = Depends(get_unit_of_work),
+) -> ArchiveService:
+    """Archive stories: submission, reading and moderation."""
+    return ArchiveService(stories=uow.archive_stories)
+
+
 async def get_wishlist_service(
     uow: AbstractUnitOfWork = Depends(get_unit_of_work),
 ) -> WishlistService:
@@ -132,7 +149,13 @@ async def get_order_service(
     uow: AbstractUnitOfWork = Depends(get_unit_of_work),
 ) -> OrderService:
     """The checkout/order use-case orchestrator (cart -> validated order)."""
-    return OrderService(orders=uow.orders, carts=uow.carts, products=uow.products)
+    return OrderService(
+        orders=uow.orders,
+        carts=uow.carts,
+        products=uow.products,
+        delivery=DeliveryService(rates=uow.delivery_rates),
+        customization_fee=get_settings().customization_fee,
+    )
 
 
 async def get_payment_service(
@@ -175,3 +198,15 @@ async def get_admin_service(
     service already gets, so an admin edit runs through the same rules.
     """
     return AdminService(products=uow.products, orders=uow.orders, users=uow.users)
+
+
+def get_product_image_service(
+    storage: AbstractFileStorage = Depends(get_file_storage),
+) -> ProductImageService:
+    """Product image uploads, bound to the configured file store."""
+    config = get_settings()
+    return ProductImageService(
+        storage=storage,
+        public_base_url=config.storage_public_base_url,
+        max_bytes=config.max_upload_bytes,
+    )

@@ -99,3 +99,75 @@ def test_cart_without_owner_is_invalid() -> None:
 def test_item_with_zero_quantity_is_invalid() -> None:
     with pytest.raises(ValidationError):
         _item(qty=0).validate()
+
+
+# ── personalisation: the text is part of the line's identity ────────────
+
+
+def _custom(text: str, *, variant_id: int = 1, qty: int = 1) -> CartItem:
+    item = _item(variant_id=variant_id, qty=qty)
+    item.customization = text
+    return item
+
+
+def test_same_shirt_with_different_text_stays_two_lines() -> None:
+    cart = Cart(id=1, guest_token="tok")
+    cart.add_item(_custom("Name: EDDY, #10"))
+    cart.add_item(_custom("Name: ADA, #7"))
+    cart.add_item(_custom(""))
+
+    assert len(cart.items) == 3
+    assert cart.count == 3
+
+
+def test_same_shirt_with_the_same_text_merges_into_one_line() -> None:
+    cart = Cart(id=1, guest_token="tok")
+    cart.add_item(_custom("Name: EDDY, #10", qty=1))
+    cart.add_item(_custom("Name: EDDY, #10", qty=2))
+
+    assert len(cart.items) == 1
+    assert cart.items[0].quantity == 3
+
+
+def test_text_is_trimmed_collapsed_and_compared_without_case() -> None:
+    cart = Cart(id=1, guest_token="tok")
+    cart.add_item(_custom("  Name:   EDDY,  #10 "))
+    cart.add_item(_custom("name: eddy, #10"))
+
+    assert len(cart.items) == 1
+    assert cart.items[0].customization == "Name: EDDY, #10"  # first spelling kept
+
+
+def test_blank_text_means_no_personalisation() -> None:
+    cart = Cart(id=1, guest_token="tok")
+    cart.add_item(_custom("   "))
+    cart.add_item(_item(qty=2))
+
+    assert len(cart.items) == 1
+    assert cart.items[0].customization == ""
+    assert cart.count == 3
+
+
+def test_different_sizes_never_merge_whatever_the_text() -> None:
+    cart = Cart(id=1, guest_token="tok")
+    cart.add_item(_custom("Name: EDDY, #10", variant_id=1))
+    cart.add_item(_custom("Name: EDDY, #10", variant_id=2))
+
+    assert len(cart.items) == 2
+
+
+def test_personalisation_has_a_length_limit() -> None:
+    cart = Cart(id=1, guest_token="tok")
+    cart.add_item(_custom("x" * 100))  # at the limit is fine
+    with pytest.raises(ValidationError, match="at most 100"):
+        cart.add_item(_custom("x" * 101, variant_id=2))
+
+
+def test_find_line_looks_up_by_variant_and_text() -> None:
+    cart = Cart(id=1, guest_token="tok")
+    cart.add_item(_custom("A"))
+    cart.add_item(_custom(""))
+
+    assert cart.find_line(1, "a") is cart.items[0]
+    assert cart.find_line(1, "") is cart.items[1]
+    assert cart.find_line(1, "B") is None

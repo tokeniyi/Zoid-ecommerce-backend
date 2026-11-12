@@ -16,6 +16,16 @@ from app.shared.exceptions import ValidationError
 # A new, not-yet-persisted line is marked with this sentinel id.
 NEW_ITEM_ID = 0
 
+#: Longest personalisation text a line may carry. The storefront composes
+#: "Name: <14 letters>, #<2 digits>" (or an official player's name), so this is
+#: generous while still keeping the text printable and the column bounded.
+MAX_CUSTOMIZATION_LENGTH = 100
+
+
+def normalize_customization(text: str | None) -> str:
+    """Trim and collapse whitespace; ``None``/blank mean "no personalisation"."""
+    return " ".join((text or "").split())
+
 
 @dataclass
 class CartItem:
@@ -30,10 +40,22 @@ class CartItem:
     unit_price: Decimal
     image: str = ""
     currency: str = "NGN"
+    #: Free-text personalisation (e.g. "Name: EDDY, #10"); "" means none.
+    customization: str = ""
 
     @property
     def line_total(self) -> Decimal:
         return self.unit_price * self.quantity
+
+    @property
+    def line_key(self) -> tuple[int, str]:
+        """What makes two lines the same line: the variant *and* the text.
+
+        Two shirts in one size are one line only when their personalisation
+        matches; otherwise the shopper is buying two different things. The text
+        is compared without regard to case ("eddy" and "EDDY" print the same).
+        """
+        return (self.variant_id, self.customization.casefold())
 
     def validate(self) -> None:
         if not self.product_slug:
@@ -44,6 +66,10 @@ class CartItem:
             raise ValidationError("Cart item quantity must be at least 1")
         if self.unit_price < Decimal("0"):
             raise ValidationError("Cart item price cannot be negative")
+        if len(self.customization) > MAX_CUSTOMIZATION_LENGTH:
+            raise ValidationError(
+                f"Personalisation must be at most {MAX_CUSTOMIZATION_LENGTH} characters"
+            )
 
 
 @dataclass
@@ -67,13 +93,16 @@ class Cart:
     def find_item(self, item_id: int) -> CartItem | None:
         return next((item for item in self.items if item.id == item_id), None)
 
-    def find_item_by_variant(self, variant_id: int) -> CartItem | None:
-        return next((item for item in self.items if item.variant_id == variant_id), None)
+    def find_line(self, variant_id: int, customization: str = "") -> CartItem | None:
+        """The line for this variant *with this personalisation*, if there is one."""
+        key = (variant_id, customization.casefold())
+        return next((item for item in self.items if item.line_key == key), None)
 
     def add_item(self, item: CartItem) -> None:
-        """Add a line, or increase the quantity if the variant is already in the cart."""
+        """Add a line, or increase the quantity of the identical line already in the cart."""
+        item.customization = normalize_customization(item.customization)
         item.validate()
-        existing = self.find_item_by_variant(item.variant_id)
+        existing = self.find_line(item.variant_id, item.customization)
         if existing is not None:
             existing.quantity += item.quantity
             existing.validate()

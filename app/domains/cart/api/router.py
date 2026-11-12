@@ -52,7 +52,11 @@ async def add_item(
     cart = await service.ensure_cart(user_id=location.user_id, guest_token=location.guest_token)
     attach_guest_cookie(response, location, cart.guest_token)
     cart = await service.add_item(
-        cart, product_slug=body.product_slug, size=body.size, quantity=body.quantity
+        cart,
+        product_slug=body.product_slug,
+        size=body.size,
+        quantity=body.quantity,
+        customization=body.customization,
     )
     return serialize_cart(cart)
 

@@ -49,7 +49,13 @@ class CartService:
         return await self._carts.add(Cart(id=0, guest_token=new_guest_token()))
 
     async def add_item(
-        self, cart: Cart, *, product_slug: str, size: str, quantity: int
+        self,
+        cart: Cart,
+        *,
+        product_slug: str,
+        size: str,
+        quantity: int,
+        customization: str = "",
     ) -> Cart:
         product = await self._products.get_by_slug(product_slug)
         if product is None or not product.is_active:
@@ -72,6 +78,7 @@ class CartService:
                 unit_price=Decimal(product.price),
                 image=image,
                 currency=product.currency,
+                customization=customization,
             )
         )
         return await self._carts.save(cart)

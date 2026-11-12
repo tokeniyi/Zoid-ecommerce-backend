@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
+from app.domains.orders.domain.criteria import OrderCriteria
 from app.domains.orders.domain.entities import Order
 from app.domains.orders.domain.enums import OrderStatus
 
@@ -26,6 +27,16 @@ class AbstractOrderRepository(ABC):
     @abstractmethod
     async def list_all(self, *, limit: int, offset: int) -> list[Order]:
         """Return a page of every customer's orders, newest first (the shop's ledger)."""
+
+    @abstractmethod
+    async def search(
+        self, criteria: OrderCriteria, *, limit: int | None = None, offset: int = 0
+    ) -> list[Order]:
+        """Orders matching ``criteria``, newest first. ``limit=None`` means all of them."""
+
+    @abstractmethod
+    async def count(self, criteria: OrderCriteria) -> int:
+        """How many orders match ``criteria``."""
 
     @abstractmethod
     async def count_all(self, *, status: OrderStatus | None = None) -> int:

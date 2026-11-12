@@ -20,6 +20,7 @@ from app.domains.admin.application.service import (
     NewSize,
     RestockCommand,
 )
+from app.domains.orders.domain.criteria import OrderCriteria
 from app.domains.orders.domain.entities import Order, OrderItem
 from app.domains.orders.domain.enums import OrderStatus
 from app.domains.orders.domain.repositories import AbstractOrderRepository
@@ -69,6 +70,9 @@ class FakeProductRepository(AbstractProductRepository):
     async def count_active(self) -> int:
         return sum(1 for p in self._by_id.values() if p.is_active)
 
+    async def list_catalog(self, *, include_inactive: bool = False) -> list[Product]:
+        return [p for p in self._by_id.values() if include_inactive or p.is_active]
+
     async def save(self, product: Product) -> Product | None:
         self.saved.append(product.id)
         return self._by_id.get(product.id)
@@ -106,6 +110,18 @@ class FakeOrderRepository(AbstractOrderRepository):
         self.listed.append((limit, offset))
         newest_first = sorted(self._by_id.values(), key=lambda o: o.id, reverse=True)
         return newest_first[offset : offset + limit]
+
+    async def search(
+        self, criteria: OrderCriteria, *, limit: int | None = None, offset: int = 0
+    ) -> list[Order]:
+        if limit is not None:
+            self.listed.append((limit, offset))
+        matching = [o for o in self._by_id.values() if criteria.matches(o)]
+        newest_first = sorted(matching, key=lambda o: o.id, reverse=True)
+        return newest_first[offset:] if limit is None else newest_first[offset : offset + limit]
+
+    async def count(self, criteria: OrderCriteria) -> int:
+        return sum(1 for o in self._by_id.values() if criteria.matches(o))
 
     async def count_all(self, *, status: OrderStatus | None = None) -> int:
         return sum(1 for o in self._by_id.values() if status is None or o.status is status)

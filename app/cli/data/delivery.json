@@ -1,0 +1,254 @@
+{
+ "_comment": "Converted from the storefront (deliveryEligibility.ts, Checkout.tsx). Fees are the storefront's current prices.",
+ "fees": {
+  "standard": "2500.00",
+  "express": "4500.00",
+  "pickup": "0.00"
+ },
+ "hand_delivery_states": [
+  "Lagos State",
+  "Ogun State",
+  "Rivers State"
+ ],
+ "port_harcourt_areas": [
+  "Port Harcourt (City)",
+  "Port Harcourt",
+  "Old GRA",
+  "GRA Phase 1, 2 & 3",
+  "Peter Odili Road",
+  "Trans Amadi Industrial",
+  "D-Line",
+  "Rumuola",
+  "Rumuokwuta",
+  "Rumuokoro",
+  "Choba (Uniport Axis)",
+  "Woji",
+  "Elelenwo",
+  "Borikiri",
+  "Diobu (Mile 1-3)",
+  "Ada-George",
+  "Iwofe Road"
+ ],
+ "universities": [
+  {
+   "name": "University of Lagos, Akoka (UNILAG)",
+   "state": "Lagos State"
+  },
+  {
+   "name": "Lagos State University, Ojo (LASU)",
+   "state": "Lagos State"
+  },
+  {
+   "name": "Lagos State University of Science and Technology, Ikorodu (LASUSTECH)",
+   "state": "Lagos State"
+  },
+  {
+   "name": "Lagos State University of Education, Ijanikin (LASUED)",
+   "state": "Lagos State"
+  },
+  {
+   "name": "Yaba College of Technology, Lagos (YABATECH)",
+   "state": "Lagos State"
+  },
+  {
+   "name": "Lagos City Polytechnic",
+   "state": "Lagos State"
+  },
+  {
+   "name": "Anchor University, Ayobo, Lagos",
+   "state": "Lagos State"
+  },
+  {
+   "name": "Augustine University, Ilara, Epe",
+   "state": "Lagos State"
+  },
+  {
+   "name": "Caleb University, Imota, Lagos",
+   "state": "Lagos State"
+  },
+  {
+   "name": "Eko University of Medicine and Health Sciences, Ijanikin",
+   "state": "Lagos State"
+  },
+  {
+   "name": "Pan-Atlantic University, Ibeju-Lekki, Lagos (PAU)",
+   "state": "Lagos State"
+  },
+  {
+   "name": "Trinity University, Yaba, Lagos",
+   "state": "Lagos State"
+  },
+  {
+   "name": "Federal University of Agriculture, Abeokuta (FUNAAB)",
+   "state": "Ogun State"
+  },
+  {
+   "name": "Covenant University, Ota",
+   "state": "Ogun State"
+  },
+  {
+   "name": "Babcock University, Ilishan-Remo",
+   "state": "Ogun State"
+  },
+  {
+   "name": "Bells University of Technology, Ota",
+   "state": "Ogun State"
+  },
+  {
+   "name": "Olabisi Onabanjo University, Ago-Iwoye (OOU)",
+   "state": "Ogun State"
+  },
+  {
+   "name": "Tai Solarin University of Education, Ijagun (TASUED)",
+   "state": "Ogun State"
+  },
+  {
+   "name": "Crawford University, Igbesa",
+   "state": "Ogun State"
+  },
+  {
+   "name": "Crescent University, Abeokuta",
+   "state": "Ogun State"
+  },
+  {
+   "name": "Chrisland University, Owode, Abeokuta",
+   "state": "Ogun State"
+  },
+  {
+   "name": "Christopher University, Mowe",
+   "state": "Ogun State"
+  },
+  {
+   "name": "Hallmark University, Ijebu-Itele",
+   "state": "Ogun State"
+  },
+  {
+   "name": "McPherson University, Seriki-Sotayo",
+   "state": "Ogun State"
+  },
+  {
+   "name": "Mountain Top University, Makogi Oba",
+   "state": "Ogun State"
+  },
+  {
+   "name": "Southwestern University, Okun Owa",
+   "state": "Ogun State"
+  },
+  {
+   "name": "University of Port Harcourt (UNIPORT)",
+   "state": "Rivers State"
+  },
+  {
+   "name": "Rivers State University, Port Harcourt (RSU)",
+   "state": "Rivers State"
+  },
+  {
+   "name": "Ignatius Ajuru University of Education, Port Harcourt (IAUE)",
+   "state": "Rivers State"
+  },
+  {
+   "name": "PAMO University of Medical Sciences, Port Harcourt",
+   "state": "Rivers State"
+  }
+ ],
+ "guo_terminals": {
+  "Lagos State": [
+   "Ojota Terminal (7 Ikorodu Road, Ojota)",
+   "Maryland Terminal (Lagos-Ibadan Expressway)",
+   "Mile 2 Terminal (Apapa-Oshodi Expressway)",
+   "Tin Can Island Terminal"
+  ],
+  "Rivers State": [
+   "Mile 1 Terminal (Old GUO Park, Mile 1 Diobu)",
+   "Rumuola Terminal (Rumuola Road)",
+   "Eleme Junction Terminal",
+   "Trans-Amadi Terminal"
+  ],
+  "Ogun State": [
+   "Sagamu Terminal (Sagamu Interchange)",
+   "Abeokuta Terminal (Oke-Mosan Road)",
+   "Ifo Terminal (Lagos-Abeokuta Expressway)"
+  ],
+  "Abuja (FCT)": [
+   "Utako Terminal (GUO Transport, Utako)",
+   "Gwagwalada Terminal",
+   "Kubwa Terminal (Kubwa Expressway)"
+  ],
+  "FCT - Abuja": [
+   "Utako Terminal (GUO Transport, Utako)",
+   "Gwagwalada Terminal",
+   "Kubwa Terminal (Kubwa Expressway)"
+  ],
+  "Anambra State": [
+   "Awka Terminal (GUO Park, Enugu-Onitsha Expressway)",
+   "Onitsha Terminal (New Market Road, Onitsha)",
+   "Nnewi Terminal"
+  ],
+  "Enugu State": [
+   "Enugu Terminal (GUO Park, Ogui Road)",
+   "Enugu New Terminal (Agbani Road)"
+  ],
+  "Oyo State": [
+   "Ibadan Terminal (GUO Park, Iwo Road)",
+   "Challenge Terminal (Challenge Interchange, Ibadan)"
+  ],
+  "Delta State": [
+   "Asaba Terminal (GUO Park, Nnebisi Road)",
+   "Warri Terminal (GUO Park, Effurun Roundabout)"
+  ],
+  "Edo State": [
+   "Benin City Terminal (GUO Park, Akpakpava Road)",
+   "Auchi Terminal"
+  ],
+  "Kano State": [
+   "Kano Terminal (GUO Park, Zaria Road, Kano)"
+  ],
+  "Imo State": [
+   "Owerri Terminal (GUO Park, Egbu Road, Owerri)",
+   "Orlu Terminal"
+  ],
+  "Abia State": [
+   "Aba Terminal (GUO Park, Faulks Road, Aba)",
+   "Umuahia Terminal (Enugu Road, Umuahia)"
+  ],
+  "Cross River State": [
+   "Calabar Terminal (GUO Park, Murtala Mohammed Highway, Calabar)"
+  ],
+  "Akwa Ibom State": [
+   "Uyo Terminal (GUO Park, Aka Road, Uyo)",
+   "Ikot Ekpene Terminal"
+  ],
+  "Ondo State": [
+   "Akure Terminal (GUO Park, Ado-Ekiti Road, Akure)",
+   "Ondo Terminal"
+  ],
+  "Ekiti State": [
+   "Ado-Ekiti Terminal (GUO Park, Lagos-Ado Road)"
+  ],
+  "Osun State": [
+   "Osogbo Terminal (GUO Park, Station Road, Osogbo)",
+   "Ile-Ife Terminal"
+  ],
+  "Kwara State": [
+   "Ilorin Terminal (GUO Park, Ahmadu Bello Way, Ilorin)"
+  ],
+  "Kaduna State": [
+   "Kaduna Terminal (GUO Park, Ahmadu Bello Way, Kaduna)"
+  ],
+  "Niger State": [
+   "Minna Terminal (GUO Park, Bosso Road, Minna)"
+  ],
+  "Kogi State": [
+   "Lokoja Terminal (Confluence, Lokoja)"
+  ],
+  "Benue State": [
+   "Makurdi Terminal (GUO Park, Gboko Road, Makurdi)"
+  ],
+  "Plateau State": [
+   "Jos Terminal (GUO Park, Bauchi Road, Jos)"
+  ],
+  "Taraba State": [
+   "Jalingo Terminal (Hammaruwa Way, Jalingo)"
+  ]
+ }
+}

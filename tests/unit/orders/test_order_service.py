@@ -13,11 +13,13 @@ import pytest
 
 from app.domains.cart.domain.entities import Cart, CartItem
 from app.domains.cart.domain.repositories import AbstractCartRepository
+from app.domains.delivery.application.service import DeliveryService
 from app.domains.orders.application.service import (
     CheckoutCommand,
     OrderService,
     new_order_reference,
 )
+from app.domains.orders.domain.criteria import OrderCriteria
 from app.domains.orders.domain.entities import Order
 from app.domains.orders.domain.enums import OrderStatus
 from app.domains.orders.domain.repositories import AbstractOrderRepository
@@ -30,6 +32,7 @@ from app.domains.products.domain.entities import (
 )
 from app.domains.products.domain.repositories import AbstractProductRepository
 from app.shared.exceptions import ConflictError, NotFoundError, ValidationError
+from tests.support.delivery import STANDARD_FEE, InMemoryDeliveryRates, checkout_details
 
 USER_ID = 7
 PRICE = Decimal("58500.00")
@@ -85,6 +88,14 @@ class InMemoryOrderRepository(AbstractOrderRepository):
     async def list_all(self, *, limit: int, offset: int) -> list[Order]:  # pragma: no cover
         return list(self._store.values())[offset : offset + limit]
 
+    async def search(  # pragma: no cover
+        self, criteria: OrderCriteria, *, limit: int | None = None, offset: int = 0
+    ) -> list[Order]:
+        return [o for o in self._store.values() if criteria.matches(o)]
+
+    async def count(self, criteria: OrderCriteria) -> int:  # pragma: no cover
+        return len(await self.search(criteria))
+
     async def count_all(self, *, status: OrderStatus | None = None) -> int:  # pragma: no cover
         return sum(1 for o in self._store.values() if status is None or o.status is status)
 
@@ -111,6 +122,11 @@ class InMemoryProductRepository(AbstractProductRepository):
         raise NotImplementedError
 
     async def count_active(self) -> int:  # pragma: no cover
+        raise NotImplementedError
+
+    async def list_catalog(  # pragma: no cover
+        self, *, include_inactive: bool = False
+    ) -> list[Product]:
         raise NotImplementedError
 
     async def save(self, product: Product) -> Product | None:  # pragma: no cover
@@ -164,8 +180,7 @@ def _checkout(**overrides: object) -> CheckoutCommand:
         "contact_name": "Ada Zoid",
         "contact_email": "ada@example.com",
         "contact_phone": "+234 800 000 0000",
-        "address_line": "12 Concrete Road",
-        "city_state": "Lagos State",
+        "delivery": checkout_details(),
     }
     kwargs.update(overrides)
     return CheckoutCommand(**kwargs)  # type: ignore[arg-type]
@@ -182,7 +197,10 @@ def _service(
         carts._store[cart.id] = cart
     orders = InMemoryOrderRepository()
     service = OrderService(
-        orders=orders, carts=carts, products=InMemoryProductRepository(products)
+        orders=orders,
+        carts=carts,
+        products=InMemoryProductRepository(products),
+        delivery=DeliveryService(rates=InMemoryDeliveryRates()),
     )
     return service, orders, carts, products
 
@@ -196,7 +214,9 @@ async def test_valid_cart_becomes_pending_payment_order() -> None:
     assert order.id != 0
     assert order.status is OrderStatus.PENDING_PAYMENT
     assert order.user_id == USER_ID
-    assert order.total == PRICE * 2
+    assert order.subtotal == PRICE * 2
+    assert order.delivery_fee == STANDARD_FEE
+    assert order.total == PRICE * 2 + STANDARD_FEE
     assert order.item_count == 2
     assert order.reference.startswith("ZD-")
     line = order.items[0]

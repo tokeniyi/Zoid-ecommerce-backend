@@ -37,8 +37,9 @@ from app.infrastructure.persistence.sqlalchemy.session import (
 from app.infrastructure.persistence.sqlalchemy.unit_of_work import SqlAlchemyUnitOfWork
 from app.main import app
 from app.security.authentication.session import session_strategy_from_settings
+from tests.support.delivery import CHECKOUT_DELIVERY
 
-pytestmark = pytest.mark.database
+pytestmark = [pytest.mark.database, pytest.mark.usefixtures("basic_delivery_rates")]
 
 _settings = get_settings()
 API = _settings.api_v1_prefix
@@ -50,8 +51,7 @@ CHECKOUT = {
     "contact_name": "Ada Zoid",
     "contact_email": "ada@example.com",
     "contact_phone": "+234 800 000 0000",
-    "address_line": "12 Concrete Road, Yaba",
-    "city_state": "Lagos State",
+    "delivery": CHECKOUT_DELIVERY,
 }
 
 #: Keys a path item may carry that are not HTTP operations.
@@ -74,7 +74,7 @@ ADMIN_OPERATIONS = _admin_operations()
 
 def _concrete(path: str) -> str:
     """A path template with something plausible in its holes."""
-    return path.replace("{product_id}", "1")
+    return path.replace("{product_id}", "1").replace("{order_id}", "1").replace("{story_id}", "1")
 
 
 def _body_for(method: str) -> dict[str, Any] | None:
@@ -222,13 +222,20 @@ def _all_customers(client: TestClient, admin: str) -> list[dict[str, Any]]:
 
 
 def test_the_admin_surface_is_exactly_what_was_promised() -> None:
-    """The six defined capabilities, and nothing published beside them."""
+    """The defined capabilities, and nothing published beside them."""
     assert {(method, path) for method, path in ADMIN_OPERATIONS} == {
         ("GET", f"{API}/admin/dashboard"),
+        ("GET", f"{API}/admin/analytics"),
+        ("GET", f"{API}/admin/archives"),
+        ("PATCH", f"{API}/admin/archives/{{story_id}}/moderation"),
+        ("GET", f"{API}/admin/products"),
         ("POST", f"{API}/admin/products"),
+        ("POST", f"{API}/admin/products/images"),
         ("PATCH", f"{API}/admin/products/{{product_id}}"),
         ("POST", f"{API}/admin/products/{{product_id}}/stock"),
+        ("PATCH", f"{API}/admin/products/{{product_id}}/stock"),
         ("GET", f"{API}/admin/orders"),
+        ("PATCH", f"{API}/admin/orders/{{order_id}}/fulfillment"),
         ("GET", f"{API}/admin/users"),
     }
 
@@ -594,12 +601,12 @@ async def test_the_admin_sees_the_order_book_as_the_store_keeps_it(
     seen = find()
     assert seen["status"] == "PENDING_PAYMENT"
     assert seen["reference"] == order["reference"]
-    assert seen["total"] == "117000.00"
+    assert seen["total"] == "119500.00"  # 2 x 58,500 + delivery 2,500
     assert seen["count"] == 2
     # The shop needs the delivery, not just the money.
     assert seen["contact_name"] == CHECKOUT["contact_name"]
     assert seen["contact_email"] == CHECKOUT["contact_email"]
-    assert seen["address_line"] == CHECKOUT["address_line"]
+    assert seen["address_line"] == CHECKOUT_DELIVERY["address"]
     assert seen["items"][0]["product_slug"] == seeded.slug
 
     await _mark_paid(order["id"])
@@ -811,3 +818,57 @@ async def test_the_dashboard_counts_stock_that_can_actually_be_sold(
     assert stats["units_available"] == 2
     # Counting the 4 reserved units would make this 6000.00.
     assert stats["inventory_value"] == "2000.00"
+
+
+async def test_an_admin_runs_a_sale_and_ends_it(client: TestClient) -> None:
+    admin = _mint("admin")
+    product = _create(
+        client, admin, price="58500.00", original_price="68000.00", is_new_arrival=True
+    )
+    assert product["original_price"] == "68000.00"
+    assert product["discount_percent"] == 14
+    assert product["is_new_arrival"] is True
+
+    # Left out: the sale is kept.
+    kept = client.patch(
+        f"{API}/admin/products/{product['id']}", cookies={COOKIE: admin}, json={"name": "Renamed"}
+    ).json()
+    assert kept["discount_percent"] == 14
+
+    # An explicit null ends the sale; nothing else changes.
+    ended = client.patch(
+        f"{API}/admin/products/{product['id']}",
+        cookies={COOKIE: admin},
+        json={"original_price": None},
+    )
+    assert ended.status_code == 200, ended.text
+    assert ended.json()["original_price"] is None
+    assert ended.json()["discount_percent"] is None
+    assert ended.json()["price"] == "58500.00"
+
+
+async def test_a_sale_price_must_be_a_real_markdown(client: TestClient) -> None:
+    admin = _mint("admin")
+    refused = client.post(
+        f"{API}/admin/products",
+        cookies={COOKIE: admin},
+        json=_new_product(price="58500.00", original_price="50000.00"),
+    )
+    assert refused.status_code == 422
+
+    product = _create(client, admin, price="50000.00", original_price="60000.00")
+    # Raising the price above the old one without ending the sale is refused...
+    too_high = client.patch(
+        f"{API}/admin/products/{product['id']}",
+        cookies={COOKIE: admin},
+        json={"price": "70000.00"},
+    )
+    assert too_high.status_code == 422
+    # ...and the product is untouched; doing both in one edit is fine.
+    assert client.get(f"{API}/products/{product['slug']}").json()["price"] == "50000.00"
+    both = client.patch(
+        f"{API}/admin/products/{product['id']}",
+        cookies={COOKIE: admin},
+        json={"price": "70000.00", "original_price": None},
+    )
+    assert both.status_code == 200, both.text

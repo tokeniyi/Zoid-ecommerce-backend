@@ -50,6 +50,9 @@ class InMemoryProductRepository(AbstractProductRepository):
     async def count_active(self) -> int:
         return sum(1 for p in self._by_id.values() if p.is_active)
 
+    async def list_catalog(self, *, include_inactive: bool = False) -> list[Product]:
+        return [p for p in self._by_id.values() if include_inactive or p.is_active]
+
     async def save(self, product: Product) -> Product | None:
         # Products are held by reference, so editing one edits the store; only a
         # product that is really in it can come back out.

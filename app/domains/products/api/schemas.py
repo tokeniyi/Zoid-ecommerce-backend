@@ -31,12 +31,15 @@ class ProductSummaryResponse(BaseModel):
     name: str
     category: str
     price: str
+    original_price: str | None
+    discount_percent: int | None
     currency: str
     image: str | None
     sizes: list[str]
     stock: dict[str, int]
     is_bestseller: bool
     is_special: bool
+    is_new_arrival: bool
 
 
 class ProductDetailResponse(ProductSummaryResponse):
@@ -73,12 +76,19 @@ def serialize_summary(product: Product) -> ProductSummaryResponse:
         name=product.name,
         category=product.category.name,
         price=serialize_money(product.price),
+        original_price=(
+            serialize_money(product.original_price)
+            if product.original_price is not None
+            else None
+        ),
+        discount_percent=product.discount_percent,
         currency=product.currency,
         image=product.primary_image,
         sizes=product.sizes,
         stock=product.stock,
         is_bestseller=product.is_bestseller,
         is_special=product.is_special,
+        is_new_arrival=product.is_new_arrival,
     )
 
 

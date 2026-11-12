@@ -1,0 +1,745 @@
+[
+  {
+    "slug": "ac-milan-2526",
+    "name": "AC Milan / 25—26",
+    "category": {
+      "name": "CURATED JERSEY",
+      "slug": "curated-jersey"
+    },
+    "price": "58500.00",
+    "original_price": "68000.00",
+    "image": "/manus-storage/ac-milan-2526_b917ea29.jpg",
+    "tone": "Red / Black",
+    "style": "Jersey",
+    "color": "Red",
+    "fit": "True to size",
+    "fit_note": "Choose your usual size for a relaxed match-day fit. Size up for more room through the body.",
+    "details": "A classic Rossoneri stripe, selected for the rhythm of the shirt and the weight it carries across generations.",
+    "delivery": "Delivered in 2 weeks",
+    "is_bestseller": true,
+    "is_special": false,
+    "is_new_arrival": true,
+    "sizes": [
+      {
+        "size": "M",
+        "quantity": 8
+      },
+      {
+        "size": "L",
+        "quantity": 3
+      },
+      {
+        "size": "XL",
+        "quantity": 6
+      }
+    ]
+  },
+  {
+    "slug": "barcelona-away",
+    "name": "Barcelona / Away",
+    "category": {
+      "name": "ARCHIVE EDITION",
+      "slug": "archive-edition"
+    },
+    "price": "62000.00",
+    "original_price": "75000.00",
+    "image": "/manus-storage/barcelona_9a244f02.jpg",
+    "tone": "Onyx / Red",
+    "style": "Archive",
+    "color": "Black",
+    "fit": "Relaxed",
+    "fit_note": "A roomier archival cut. Size down for a closer silhouette or stay true to size for the full vintage shape.",
+    "details": "A dark away expression with a sharp contrast story, curated for late-night streets and long-distance football memory.",
+    "delivery": "Delivered in 2 weeks",
+    "is_bestseller": true,
+    "is_special": false,
+    "is_new_arrival": false,
+    "sizes": [
+      {
+        "size": "M",
+        "quantity": 2
+      },
+      {
+        "size": "L",
+        "quantity": 7
+      },
+      {
+        "size": "XL",
+        "quantity": 4
+      }
+    ]
+  },
+  {
+    "slug": "inter-milan-2526",
+    "name": "Inter Milan / 25—26",
+    "category": {
+      "name": "CURATED JERSEY",
+      "slug": "curated-jersey"
+    },
+    "price": "59500.00",
+    "original_price": null,
+    "image": "/manus-storage/inter-milan-2526_65e7cadc.jpg",
+    "tone": "Blue / Black",
+    "style": "Jersey",
+    "color": "Blue",
+    "fit": "True to size",
+    "fit_note": "Choose your usual size for a relaxed match-day fit. Size up for more room through the body.",
+    "details": "A blue-black vertical code from San Siro, selected for its graphic discipline and unmistakable match-day presence.",
+    "delivery": "Delivered in 2 weeks",
+    "is_bestseller": false,
+    "is_special": false,
+    "is_new_arrival": true,
+    "sizes": [
+      {
+        "size": "M",
+        "quantity": 5
+      },
+      {
+        "size": "L",
+        "quantity": 1
+      },
+      {
+        "size": "XL",
+        "quantity": 3
+      }
+    ]
+  },
+  {
+    "slug": "liverpool-2526",
+    "name": "Liverpool / 25—26",
+    "category": {
+      "name": "HERITAGE DROP",
+      "slug": "heritage-drop"
+    },
+    "price": "61500.00",
+    "original_price": "70000.00",
+    "image": "/manus-storage/liverpool-2526_78e5ffc7.jpg",
+    "tone": "Red / Bone",
+    "style": "Heritage",
+    "color": "Red",
+    "fit": "Athletic",
+    "fit_note": "Designed close through the chest with stretch through the body. Stay true to size for the intended athletic profile.",
+    "details": "A red shirt with a city-wide pulse, carrying the energy of the Kop into a new field of wear.",
+    "delivery": "Delivered in 2 weeks",
+    "is_bestseller": false,
+    "is_special": false,
+    "is_new_arrival": false,
+    "sizes": [
+      {
+        "size": "M",
+        "quantity": 9
+      },
+      {
+        "size": "L",
+        "quantity": 4
+      },
+      {
+        "size": "XL",
+        "quantity": 2
+      }
+    ]
+  },
+  {
+    "slug": "manchester-united-2526",
+    "name": "Manchester United / 25—26",
+    "category": {
+      "name": "CURATED JERSEY",
+      "slug": "curated-jersey"
+    },
+    "price": "60500.00",
+    "original_price": null,
+    "image": "/manus-storage/manchester-united-2526_2aca202f.jpg",
+    "tone": "Red / Black",
+    "style": "Jersey",
+    "color": "Red",
+    "fit": "True to size",
+    "fit_note": "Choose your usual size for a relaxed match-day fit. Size up for more room through the body.",
+    "details": "A red home statement shaped by one of football's most persistent visual languages: crest, collar, conviction.",
+    "delivery": "Delivered in 2 weeks",
+    "is_bestseller": true,
+    "is_special": false,
+    "is_new_arrival": false,
+    "sizes": [
+      {
+        "size": "M",
+        "quantity": 4
+      },
+      {
+        "size": "L",
+        "quantity": 2
+      },
+      {
+        "size": "XL",
+        "quantity": 8
+      }
+    ]
+  },
+  {
+    "slug": "manchester-city-2324",
+    "name": "Manchester City / 23—24",
+    "category": {
+      "name": "ARCHIVE EDITION",
+      "slug": "archive-edition"
+    },
+    "price": "55000.00",
+    "original_price": "65000.00",
+    "image": "/manus-storage/manchester-city-2324_a2693d41.jpg",
+    "tone": "Sky / White",
+    "style": "Archive",
+    "color": "White",
+    "fit": "Relaxed",
+    "fit_note": "A roomier archival cut. Size down for a closer silhouette or stay true to size for the full vintage shape.",
+    "details": "A clean sky-blue archive cut, chosen for the calm confidence of a side that kept rising.",
+    "delivery": "Delivered in 2 weeks",
+    "is_bestseller": false,
+    "is_special": false,
+    "is_new_arrival": false,
+    "sizes": [
+      {
+        "size": "M",
+        "quantity": 6
+      },
+      {
+        "size": "L",
+        "quantity": 5
+      },
+      {
+        "size": "XL",
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "slug": "newcastle-2526",
+    "name": "Newcastle / 25—26",
+    "category": {
+      "name": "HERITAGE DROP",
+      "slug": "heritage-drop"
+    },
+    "price": "57500.00",
+    "original_price": null,
+    "image": "/manus-storage/newcastle-2526_802db4b3.jpg",
+    "tone": "Black / White",
+    "style": "Heritage",
+    "color": "Black",
+    "fit": "True to size",
+    "fit_note": "Choose your usual size for a relaxed match-day fit. Size up for more room through the body.",
+    "details": "Black and white stripes with a northern edge, selected as evidence that identity can be immediate and lasting.",
+    "delivery": "Delivered in 2 weeks",
+    "is_bestseller": false,
+    "is_special": false,
+    "is_new_arrival": false,
+    "sizes": [
+      {
+        "size": "M",
+        "quantity": 3
+      },
+      {
+        "size": "L",
+        "quantity": 2
+      },
+      {
+        "size": "XL",
+        "quantity": 7
+      }
+    ]
+  },
+  {
+    "slug": "aston-villa-home",
+    "name": "Aston Villa / Home",
+    "category": {
+      "name": "CURATED JERSEY",
+      "slug": "curated-jersey"
+    },
+    "price": "56500.00",
+    "original_price": null,
+    "image": "/manus-storage/aston-villa_fd1eeff3.jpg",
+    "tone": "Claret / Blue",
+    "style": "Jersey",
+    "color": "Red",
+    "fit": "Athletic",
+    "fit_note": "Designed close through the chest with stretch through the body. Stay true to size for the intended athletic profile.",
+    "details": "A claret-and-blue home cut with a strong shoulder line and a story built on belonging.",
+    "delivery": "Delivered in 2 weeks",
+    "is_bestseller": false,
+    "is_special": false,
+    "is_new_arrival": false,
+    "sizes": [
+      {
+        "size": "M",
+        "quantity": 5
+      },
+      {
+        "size": "L",
+        "quantity": 6
+      },
+      {
+        "size": "XL",
+        "quantity": 2
+      }
+    ]
+  },
+  {
+    "slug": "real-madrid-2627",
+    "name": "Real Madrid / 26—27",
+    "category": {
+      "name": "SPECIAL KIT",
+      "slug": "special-kit"
+    },
+    "price": "64000.00",
+    "original_price": "80000.00",
+    "image": "/manus-storage/real-madrid-2627_1566a606.jpg",
+    "tone": "White / Onyx",
+    "style": "Jersey",
+    "color": "White",
+    "fit": "True to size",
+    "fit_note": "Choose your usual size for a relaxed match-day fit. Size up for more room through the body.",
+    "details": "A white first layer with a sharp new-season line, held for the collector who knows when a classic shifts.",
+    "delivery": "Delivered in 2 weeks",
+    "is_bestseller": false,
+    "is_special": true,
+    "is_new_arrival": true,
+    "sizes": [
+      {
+        "size": "M",
+        "quantity": 1
+      },
+      {
+        "size": "L",
+        "quantity": 4
+      },
+      {
+        "size": "XL",
+        "quantity": 3
+      }
+    ]
+  },
+  {
+    "slug": "juventus-2526",
+    "name": "Juventus / 25—26",
+    "category": {
+      "name": "SPECIAL KIT",
+      "slug": "special-kit"
+    },
+    "price": "63500.00",
+    "original_price": "78000.00",
+    "image": "/manus-storage/juventus-2526_98206217.jpg",
+    "tone": "Black / White",
+    "style": "Jersey",
+    "color": "Black",
+    "fit": "True to size",
+    "fit_note": "Choose your usual size for a relaxed match-day fit. Size up for more room through the body.",
+    "details": "A monochrome Turin code, curated for graphic impact and the discipline of a shirt that never needs to shout.",
+    "delivery": "Delivered in 2 weeks",
+    "is_bestseller": true,
+    "is_special": true,
+    "is_new_arrival": false,
+    "sizes": [
+      {
+        "size": "M",
+        "quantity": 7
+      },
+      {
+        "size": "L",
+        "quantity": 2
+      },
+      {
+        "size": "XL",
+        "quantity": 5
+      }
+    ]
+  },
+  {
+    "slug": "lyon-2526",
+    "name": "Lyon / 25—26",
+    "category": {
+      "name": "SPECIAL KIT",
+      "slug": "special-kit"
+    },
+    "price": "58000.00",
+    "original_price": "72000.00",
+    "image": "/manus-storage/lyon-2526_f3a4ee85.jpg",
+    "tone": "White / Red / Blue",
+    "style": "Heritage",
+    "color": "White",
+    "fit": "Relaxed",
+    "fit_note": "A roomier archival cut. Size down for a closer silhouette or stay true to size for the full vintage shape.",
+    "details": "A bright French archive piece with red-blue punctuation, selected for its balance of restraint and movement.",
+    "delivery": "Delivered in 2 weeks",
+    "is_bestseller": false,
+    "is_special": true,
+    "is_new_arrival": false,
+    "sizes": [
+      {
+        "size": "M",
+        "quantity": 3
+      },
+      {
+        "size": "L",
+        "quantity": 8
+      },
+      {
+        "size": "XL",
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "slug": "brazil-1998",
+    "name": "Brazil / 1998 Vintage",
+    "category": {
+      "name": "ARCHIVE EDITION",
+      "slug": "archive-edition"
+    },
+    "price": "68000.00",
+    "original_price": "85000.00",
+    "image": "/jerseys/National/Brazil 1998 home vintage jersey.jpg",
+    "tone": "Canary Yellow / Green",
+    "style": "Archive",
+    "color": "Yellow",
+    "fit": "Relaxed",
+    "fit_note": "Classic 90s boxy fit. Fits true to size with iconic roominess.",
+    "details": "The legendary 1998 Samba classic worn by Ronaldo and Rivaldo in France.",
+    "delivery": "Delivered in 2 weeks",
+    "is_bestseller": true,
+    "is_special": false,
+    "is_new_arrival": false,
+    "sizes": [
+      {
+        "size": "M",
+        "quantity": 4
+      },
+      {
+        "size": "L",
+        "quantity": 3
+      },
+      {
+        "size": "XL",
+        "quantity": 2
+      }
+    ]
+  },
+  {
+    "slug": "england-wc",
+    "name": "England / World Cup",
+    "category": {
+      "name": "NATIONAL TEAM",
+      "slug": "national-team"
+    },
+    "price": "65000.00",
+    "original_price": null,
+    "image": "/jerseys/National/England national WC.jpg",
+    "tone": "Pure White / Navy",
+    "style": "Heritage",
+    "color": "White",
+    "fit": "True to size",
+    "fit_note": "Choose your usual size for a relaxed match-day fit. Size up for more room through the body.",
+    "details": "Three Lions white edition crafted for international competition.",
+    "delivery": "Delivered in 2 weeks",
+    "is_bestseller": false,
+    "is_special": false,
+    "is_new_arrival": false,
+    "sizes": [
+      {
+        "size": "M",
+        "quantity": 6
+      },
+      {
+        "size": "L",
+        "quantity": 4
+      },
+      {
+        "size": "XL",
+        "quantity": 5
+      }
+    ]
+  },
+  {
+    "slug": "france-2026-away",
+    "name": "France / 2026 Away",
+    "category": {
+      "name": "NATIONAL TEAM",
+      "slug": "national-team"
+    },
+    "price": "66500.00",
+    "original_price": null,
+    "image": "/jerseys/National/France FIFA world cup 2026 away.jpg",
+    "tone": "White / Tricolore",
+    "style": "Jersey",
+    "color": "White",
+    "fit": "Athletic",
+    "fit_note": "Choose your usual size for a relaxed match-day fit. Size up for more room through the body.",
+    "details": "Les Bleus away kit tailored with French elegance for the 2026 World Cup.",
+    "delivery": "Delivered in 2 weeks",
+    "is_bestseller": false,
+    "is_special": false,
+    "is_new_arrival": true,
+    "sizes": [
+      {
+        "size": "M",
+        "quantity": 5
+      },
+      {
+        "size": "L",
+        "quantity": 5
+      },
+      {
+        "size": "XL",
+        "quantity": 3
+      }
+    ]
+  },
+  {
+    "slug": "germany-2026",
+    "name": "Germany / 2026 WC",
+    "category": {
+      "name": "NATIONAL TEAM",
+      "slug": "national-team"
+    },
+    "price": "66000.00",
+    "original_price": null,
+    "image": "/jerseys/National/Germany 26 WC.jpg",
+    "tone": "White / Black",
+    "style": "Jersey",
+    "color": "White",
+    "fit": "True to size",
+    "fit_note": "Choose your usual size for a relaxed match-day fit. Size up for more room through the body.",
+    "details": "Deutscher Fußball-Bund classic white edition built for tournament pressure.",
+    "delivery": "Delivered in 2 weeks",
+    "is_bestseller": false,
+    "is_special": false,
+    "is_new_arrival": true,
+    "sizes": [
+      {
+        "size": "M",
+        "quantity": 3
+      },
+      {
+        "size": "L",
+        "quantity": 6
+      },
+      {
+        "size": "XL",
+        "quantity": 4
+      }
+    ]
+  },
+  {
+    "slug": "japan-2026",
+    "name": "Japan / 2026 Special",
+    "category": {
+      "name": "SPECIAL KIT",
+      "slug": "special-kit"
+    },
+    "price": "67000.00",
+    "original_price": "82000.00",
+    "image": "/jerseys/National/Japan 26 WCC.jpg",
+    "tone": "Samurai Blue",
+    "style": "Special",
+    "color": "Blue",
+    "fit": "Athletic",
+    "fit_note": "Choose your usual size for a relaxed match-day fit. Size up for more room through the body.",
+    "details": "Samurai Blue special world edition featuring intricate traditional wave motif.",
+    "delivery": "Delivered in 2 weeks",
+    "is_bestseller": true,
+    "is_special": true,
+    "is_new_arrival": true,
+    "sizes": [
+      {
+        "size": "M",
+        "quantity": 2
+      },
+      {
+        "size": "L",
+        "quantity": 8
+      },
+      {
+        "size": "XL",
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "slug": "norway-2026",
+    "name": "Norway / 2026 Home",
+    "category": {
+      "name": "NATIONAL TEAM",
+      "slug": "national-team"
+    },
+    "price": "64500.00",
+    "original_price": null,
+    "image": "/jerseys/National/Norway home jersey World Cup 2026.jpg",
+    "tone": "Crimson / Blue",
+    "style": "Jersey",
+    "color": "Red",
+    "fit": "True to size",
+    "fit_note": "Choose your usual size for a relaxed match-day fit. Size up for more room through the body.",
+    "details": "Viking red home edition built for speed and power.",
+    "delivery": "Delivered in 2 weeks",
+    "is_bestseller": false,
+    "is_special": false,
+    "is_new_arrival": false,
+    "sizes": [
+      {
+        "size": "M",
+        "quantity": 5
+      },
+      {
+        "size": "L",
+        "quantity": 2
+      },
+      {
+        "size": "XL",
+        "quantity": 6
+      }
+    ]
+  },
+  {
+    "slug": "spain-2026-away",
+    "name": "Spain / 2026 Away",
+    "category": {
+      "name": "NATIONAL TEAM",
+      "slug": "national-team"
+    },
+    "price": "65500.00",
+    "original_price": null,
+    "image": "/jerseys/National/Spain jersey World Cup 2026 away.jpg",
+    "tone": "Yellow / Red",
+    "style": "Jersey",
+    "color": "Yellow",
+    "fit": "True to size",
+    "fit_note": "Choose your usual size for a relaxed match-day fit. Size up for more room through the body.",
+    "details": "La Roja away iteration designed for high tempo fluid play.",
+    "delivery": "Delivered in 2 weeks",
+    "is_bestseller": false,
+    "is_special": false,
+    "is_new_arrival": false,
+    "sizes": [
+      {
+        "size": "M",
+        "quantity": 4
+      },
+      {
+        "size": "L",
+        "quantity": 4
+      },
+      {
+        "size": "XL",
+        "quantity": 3
+      }
+    ]
+  },
+  {
+    "slug": "spain-national",
+    "name": "Spain / Home Heritage",
+    "category": {
+      "name": "HERITAGE DROP",
+      "slug": "heritage-drop"
+    },
+    "price": "66000.00",
+    "original_price": null,
+    "image": "/jerseys/National/Spain national.jpg",
+    "tone": "Red / Gold",
+    "style": "Heritage",
+    "color": "Red",
+    "fit": "True to size",
+    "fit_note": "Choose your usual size for a relaxed match-day fit. Size up for more room through the body.",
+    "details": "Classic La Roja red home jersey with gold emblem accents.",
+    "delivery": "Delivered in 2 weeks",
+    "is_bestseller": false,
+    "is_special": false,
+    "is_new_arrival": false,
+    "sizes": [
+      {
+        "size": "M",
+        "quantity": 7
+      },
+      {
+        "size": "L",
+        "quantity": 3
+      },
+      {
+        "size": "XL",
+        "quantity": 2
+      }
+    ]
+  },
+  {
+    "slug": "zoid-pro-gym-set",
+    "name": "ZOID Pro Gym Set / Black",
+    "category": {
+      "name": "GYM KITS",
+      "slug": "gym-kits"
+    },
+    "price": "48000.00",
+    "original_price": "60000.00",
+    "image": "/manus-storage/zoid-jersey-detail_0ef688bb.jpg",
+    "tone": "Onyx / Stealth",
+    "style": "Gym Kit",
+    "color": "Black",
+    "fit": "Athletic",
+    "fit_note": "Engineered high-stretch performance compression fit.",
+    "details": "Monochrome training set with moisture-wicking technology and minimal branding.",
+    "delivery": "Delivered in 2 weeks",
+    "is_bestseller": true,
+    "is_special": true,
+    "is_new_arrival": true,
+    "sizes": [
+      {
+        "size": "S",
+        "quantity": 5
+      },
+      {
+        "size": "M",
+        "quantity": 10
+      },
+      {
+        "size": "L",
+        "quantity": 8
+      },
+      {
+        "size": "XL",
+        "quantity": 4
+      }
+    ]
+  },
+  {
+    "slug": "zoid-training-kit-red",
+    "name": "ZOID Apex Gym Kit / Crimson",
+    "category": {
+      "name": "GYM KITS",
+      "slug": "gym-kits"
+    },
+    "price": "52000.00",
+    "original_price": "65000.00",
+    "image": "/manus-storage/ac-milan-2526_b917ea29.jpg",
+    "tone": "Crimson / Slate",
+    "style": "Gym Kit",
+    "color": "Red",
+    "fit": "Athletic",
+    "fit_note": "Ergonomic fit designed for high-intensity training sessions.",
+    "details": "Breathable activewear kit constructed from lightweight technical fabrics.",
+    "delivery": "Delivered in 2 weeks",
+    "is_bestseller": false,
+    "is_special": true,
+    "is_new_arrival": true,
+    "sizes": [
+      {
+        "size": "S",
+        "quantity": 4
+      },
+      {
+        "size": "M",
+        "quantity": 7
+      },
+      {
+        "size": "L",
+        "quantity": 6
+      },
+      {
+        "size": "XL",
+        "quantity": 2
+      }
+    ]
+  }
+]

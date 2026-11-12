@@ -52,6 +52,10 @@ class ProductRow(Base):
     details: Mapped[str] = mapped_column(Text, nullable=False, default="")
     delivery: Mapped[str] = mapped_column(String(120), nullable=False, default="")
 
+    original_price: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    is_new_arrival: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=text("false")
+    )
     is_bestseller: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default=text("false")
     )

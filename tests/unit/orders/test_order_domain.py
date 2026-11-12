@@ -137,3 +137,93 @@ def test_an_order_beyond_payment_is_not_re_paid(status: OrderStatus) -> None:
 
     with pytest.raises(ConflictError):
         order.mark_paid()
+
+
+# ── payment and fulfillment are two separate tracks ─────────────────────
+
+from app.domains.orders.domain.enums import FulfillmentStatus, OrderPaymentStatus  # noqa: E402
+
+
+def test_a_new_order_is_unpaid_and_not_yet_being_fulfilled() -> None:
+    order = _order()
+    assert order.payment_status is OrderPaymentStatus.PENDING
+    assert order.fulfillment_status is FulfillmentStatus.PROCESSING
+    assert order.payment_reference is None and order.paid_at is None
+
+
+def test_paying_records_which_payment_settled_it_and_when() -> None:
+    order = _order()
+
+    assert order.mark_paid(reference="PAY-ABC123") is True
+
+    assert order.payment_status is OrderPaymentStatus.PAID
+    assert order.payment_reference == "PAY-ABC123"
+    assert order.paid_at is not None
+
+
+def test_a_repeated_payment_notice_changes_nothing_and_keeps_the_first_record() -> None:
+    order = _order()
+    order.mark_paid(reference="PAY-FIRST1")
+    first_paid_at = order.paid_at
+
+    assert order.mark_paid(reference="PAY-SECOND") is False
+
+    assert (order.payment_reference, order.paid_at) == ("PAY-FIRST1", first_paid_at)
+
+
+def test_a_cancelled_order_reports_cancelled_not_paid() -> None:
+    assert _order(status=OrderStatus.CANCELLED).payment_status is OrderPaymentStatus.CANCELLED
+
+
+def test_only_a_paid_order_can_be_fulfilled() -> None:
+    order = _order()
+    with pytest.raises(ConflictError, match="pending"):
+        order.set_fulfillment(FulfillmentStatus.IN_TRANSIT)
+    assert order.fulfillment_status is FulfillmentStatus.PROCESSING
+
+    with pytest.raises(ConflictError, match="cancelled"):
+        _order(status=OrderStatus.CANCELLED).set_fulfillment(FulfillmentStatus.DELIVERED)
+
+
+def test_a_paid_order_moves_through_its_stages_and_can_be_corrected() -> None:
+    order = _order()
+    order.mark_paid(reference="PAY-ABC123")
+
+    assert order.set_fulfillment(FulfillmentStatus.IN_TRANSIT) is True
+    assert order.set_fulfillment(FulfillmentStatus.IN_TRANSIT) is False  # already there
+    assert order.set_fulfillment(FulfillmentStatus.DELIVERED) is True
+    assert order.set_fulfillment(FulfillmentStatus.PROCESSING) is True  # a tap on the wrong stage
+    assert order.payment_status is OrderPaymentStatus.PAID  # never disturbed
+
+
+def test_a_late_payment_notice_cannot_collide_with_a_parcel_in_transit() -> None:
+    """Why fulfillment is its own field: the provider repeats a webhook after the
+    shop has already delivered, and the order must simply say "already paid"."""
+    order = _order()
+    order.mark_paid(reference="PAY-ABC123")
+    order.set_fulfillment(FulfillmentStatus.DELIVERED)
+
+    assert order.mark_paid(reference="PAY-ABC123") is False  # no ConflictError
+
+    assert order.fulfillment_status is FulfillmentStatus.DELIVERED
+
+
+def test_the_shop_confirms_a_pickup_terminal() -> None:
+    order = _order(
+        delivery_option="pickup",
+        delivery_terminal="Bauchi Park",
+        delivery_terminal_pending=True,
+    )
+
+    order.confirm_terminal("  Bauchi Central Terminal ")
+
+    assert order.delivery_terminal == "Bauchi Central Terminal"
+    assert order.delivery_terminal_pending is False
+    assert order.address_line == "GUO terminal pickup: Bauchi Central Terminal"
+
+
+def test_only_pickup_orders_have_a_terminal_to_confirm() -> None:
+    with pytest.raises(ConflictError, match="pickup"):
+        _order(delivery_option="standard").confirm_terminal("Anywhere")
+    with pytest.raises(ValidationError, match="required"):
+        _order(delivery_option="pickup").confirm_terminal("   ")

@@ -62,6 +62,9 @@ known-first-party = ["app"]
 # ordering, `typing.Sequence`, long `sa.Column(...)` lines) is machine output,
 # not hand-authored domain code.
 "migrations/versions/*.py" = ["E501", "I001", "UP035", "UP037"]
+# The Postman collection generator embeds hundreds of JavaScript test scripts as
+# strings; wrapping those mid-expression would hurt readability, not help it.
+"postman/build_collection.py" = ["E501"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

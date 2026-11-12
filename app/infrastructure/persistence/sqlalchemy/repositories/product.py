@@ -39,6 +39,7 @@ class SqlProductRepository(AbstractProductRepository):
             name=product.name,
             category=category,
             price=product.price,
+            original_price=product.original_price,
             currency=product.currency,
             tone=product.tone,
             style=product.style,
@@ -49,6 +50,7 @@ class SqlProductRepository(AbstractProductRepository):
             delivery=product.delivery,
             is_bestseller=product.is_bestseller,
             is_special=product.is_special,
+            is_new_arrival=product.is_new_arrival,
             is_active=product.is_active,
         )
         for position, image in enumerate(product.images):
@@ -92,6 +94,13 @@ class SqlProductRepository(AbstractProductRepository):
         rows = (await self._session.execute(stmt)).scalars().all()
         return [self._to_domain(row) for row in rows]
 
+    async def list_catalog(self, *, include_inactive: bool = False) -> list[Product]:
+        stmt = select(ProductRow).order_by(ProductRow.id)
+        if not include_inactive:
+            stmt = stmt.where(ProductRow.is_active.is_(True))
+        rows = (await self._session.execute(stmt)).scalars().all()
+        return [self._to_domain(row) for row in rows]
+
     async def count_active(self) -> int:
         stmt = select(func.count()).select_from(ProductRow).where(ProductRow.is_active.is_(True))
         return (await self._session.execute(stmt)).scalar_one()
@@ -102,6 +111,7 @@ class SqlProductRepository(AbstractProductRepository):
             return None
         row.name = product.name
         row.price = product.price
+        row.original_price = product.original_price
         row.currency = product.currency
         row.tone = product.tone
         row.style = product.style
@@ -112,6 +122,7 @@ class SqlProductRepository(AbstractProductRepository):
         row.delivery = product.delivery
         row.is_bestseller = product.is_bestseller
         row.is_special = product.is_special
+        row.is_new_arrival = product.is_new_arrival
         row.is_active = product.is_active
         # Only the counts an admin restock moved are written back: reservations
         # are the checkout path's, and the variant list itself is immutable here.
@@ -157,6 +168,7 @@ class SqlProductRepository(AbstractProductRepository):
                 id=row.category.id, name=row.category.name, slug=row.category.slug
             ),
             price=row.price,
+            original_price=row.original_price,
             currency=row.currency,
             images=[ProductImage(url=image.url, view=image.view) for image in row.images],
             variants=[
@@ -180,6 +192,7 @@ class SqlProductRepository(AbstractProductRepository):
             delivery=row.delivery,
             is_bestseller=row.is_bestseller,
             is_special=row.is_special,
+            is_new_arrival=row.is_new_arrival,
             is_active=row.is_active,
             created_at=row.created_at,
         )

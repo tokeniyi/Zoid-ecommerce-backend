@@ -13,6 +13,7 @@ without touching business logic.
 
 from __future__ import annotations
 
+from decimal import Decimal
 from functools import lru_cache
 
 from pydantic import Field, model_validator
@@ -68,9 +69,24 @@ class Settings(BaseSettings):
     # --- Payment providers ---
     paystack_secret_key: str = Field(default="", repr=False)
     paystack_webhook_secret: str = Field(default="", repr=False)
+    #: Paystack's API address. Only change it to point at a sandbox, a proxy, or a
+    #: local stand-in used for end-to-end API testing (see ``postman/``).
+    paystack_base_url: str = "https://api.paystack.co"
     stripe_secret_key: str = Field(default="", repr=False)
     stripe_webhook_secret: str = Field(default="", repr=False)
     payment_currency: str = "NGN"
+    #: Charged per unit on a personalised jersey (name + number printing).
+    customization_fee: Decimal = Decimal("2000")
+    #: The store's local time as minutes ahead of UTC (Nigeria: +1h, no daylight
+    #: saving). Decides which calendar day an order belongs to in sales reports.
+    store_utc_offset_minutes: int = 60
+    #: Where uploaded product images can be read from by anyone, e.g.
+    #: ``https://cdn.example.com`` or an S3 bucket's public URL. A provider that
+    #: reports its own address (Cloudinary) does not need it; one that does not
+    #: (S3-compatible storage) does, and the upload is refused without it.
+    storage_public_base_url: str = ""
+    #: The largest image an admin may upload, in bytes.
+    max_upload_bytes: int = 5_000_000
     # Where the provider's hosted checkout returns the customer to.
     # Default matches the Vite dev server (port 3000).
     payment_return_url: str = "http://localhost:3000/checkout"

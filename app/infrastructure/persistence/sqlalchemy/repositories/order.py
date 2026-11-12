@@ -7,12 +7,13 @@ the order row from the domain's computed properties.
 
 from __future__ import annotations
 
-from sqlalchemy import func, select
+from sqlalchemy import ColumnElement, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.domains.orders.domain.criteria import OrderCriteria
 from app.domains.orders.domain.entities import NEW_ITEM_ID, Order, OrderItem
-from app.domains.orders.domain.enums import OrderStatus
+from app.domains.orders.domain.enums import FulfillmentStatus, OrderPaymentStatus, OrderStatus
 from app.domains.orders.domain.repositories import AbstractOrderRepository
 from app.infrastructure.persistence.sqlalchemy.models.order import OrderRow
 from app.infrastructure.persistence.sqlalchemy.models.order_item import OrderItemRow
@@ -30,6 +31,8 @@ class SqlOrderRepository(AbstractOrderRepository):
             currency=order.currency,
             subtotal=order.subtotal,
             total=order.total,
+            customization_total=order.customization_total,
+            delivery_fee=order.delivery_fee,
             item_count=order.item_count,
             contact_name=order.contact_name,
             contact_email=order.contact_email,
@@ -37,6 +40,17 @@ class SqlOrderRepository(AbstractOrderRepository):
             address_line=order.address_line,
             city_state=order.city_state,
             notes=order.notes,
+            delivery_option=order.delivery_option,
+            delivery_state=order.delivery_state,
+            delivery_city=order.delivery_city,
+            delivery_university=order.delivery_university,
+            delivery_hostel_room=order.delivery_hostel_room,
+            delivery_terminal=order.delivery_terminal,
+            delivery_terminal_pending=order.delivery_terminal_pending,
+            delivery_note=order.delivery_note,
+            fulfillment_status=order.fulfillment_status.value,
+            payment_reference=order.payment_reference,
+            paid_at=order.paid_at,
         )
         for item in order.items:
             row.items.append(self._to_row(item))
@@ -71,6 +85,60 @@ class SqlOrderRepository(AbstractOrderRepository):
         ).scalars().all()
         return [self._to_domain(row) for row in rows]
 
+    async def search(
+        self, criteria: OrderCriteria, *, limit: int | None = None, offset: int = 0
+    ) -> list[Order]:
+        stmt = (
+            select(OrderRow)
+            .options(selectinload(OrderRow.items))
+            .where(*self._conditions(criteria))
+            .order_by(OrderRow.id.desc())
+            .offset(offset)
+        )
+        if limit is not None:
+            stmt = stmt.limit(limit)
+        rows = (await self._session.execute(stmt)).scalars().all()
+        return [self._to_domain(row) for row in rows]
+
+    async def count(self, criteria: OrderCriteria) -> int:
+        stmt = select(func.count()).select_from(OrderRow).where(*self._conditions(criteria))
+        return (await self._session.execute(stmt)).scalar_one()
+
+    @staticmethod
+    def _conditions(criteria: OrderCriteria) -> list[ColumnElement[bool]]:
+        """The SQL for a question. Rules about *what* a status means stay in the
+        domain; this only maps each answer to the columns that hold it."""
+        found: list[ColumnElement[bool]] = []
+        if criteria.payment_status is OrderPaymentStatus.PENDING:
+            found.append(OrderRow.status == OrderStatus.PENDING_PAYMENT.value)
+        elif criteria.payment_status is OrderPaymentStatus.CANCELLED:
+            found.append(OrderRow.status == OrderStatus.CANCELLED.value)
+        elif criteria.payment_status is OrderPaymentStatus.PAID:
+            found.append(
+                OrderRow.status.not_in(
+                    [OrderStatus.PENDING_PAYMENT.value, OrderStatus.CANCELLED.value]
+                )
+            )
+        if criteria.fulfillment_status is not None:
+            found.append(OrderRow.fulfillment_status == criteria.fulfillment_status.value)
+        if criteria.delivery_option:
+            found.append(OrderRow.delivery_option == criteria.delivery_option)
+        if criteria.query.strip():
+            needle = f"%{criteria.query.strip()}%"
+            found.append(
+                or_(
+                    OrderRow.reference.ilike(needle),
+                    OrderRow.contact_name.ilike(needle),
+                    OrderRow.contact_email.ilike(needle),
+                    OrderRow.contact_phone.ilike(needle),
+                )
+            )
+        if criteria.created_from is not None:
+            found.append(OrderRow.created_at >= criteria.created_from)
+        if criteria.created_before is not None:
+            found.append(OrderRow.created_at < criteria.created_before)
+        return found
+
     async def count_all(self, *, status: OrderStatus | None = None) -> int:
         stmt = select(func.count()).select_from(OrderRow)
         if status is not None:
@@ -88,6 +156,13 @@ class SqlOrderRepository(AbstractOrderRepository):
             raise LookupError(f"Order {order.id} no longer exists")
         row.status = order.status.value
         row.notes = order.notes
+        row.fulfillment_status = order.fulfillment_status.value
+        row.payment_reference = order.payment_reference
+        row.paid_at = order.paid_at
+        # A pickup terminal can be confirmed (or corrected) by the shop.
+        row.delivery_terminal = order.delivery_terminal
+        row.delivery_terminal_pending = order.delivery_terminal_pending
+        row.address_line = order.address_line
         await self._session.flush()
         return self._to_domain(await self._load(row.id))
 
@@ -115,6 +190,8 @@ class SqlOrderRepository(AbstractOrderRepository):
             unit_price=item.unit_price,
             image=item.image,
             currency=item.currency,
+            customization=item.customization,
+            customization_fee=item.customization_fee,
         )
 
     @staticmethod
@@ -132,6 +209,18 @@ class SqlOrderRepository(AbstractOrderRepository):
             city_state=row.city_state,
             notes=row.notes,
             created_at=row.created_at,
+            delivery_fee=row.delivery_fee,
+            delivery_option=row.delivery_option,
+            delivery_state=row.delivery_state,
+            delivery_city=row.delivery_city,
+            delivery_university=row.delivery_university,
+            delivery_hostel_room=row.delivery_hostel_room,
+            delivery_terminal=row.delivery_terminal,
+            delivery_terminal_pending=row.delivery_terminal_pending,
+            delivery_note=row.delivery_note,
+            fulfillment_status=FulfillmentStatus(row.fulfillment_status),
+            payment_reference=row.payment_reference,
+            paid_at=row.paid_at,
             items=[
                 OrderItem(
                     id=item.id,
@@ -143,6 +232,8 @@ class SqlOrderRepository(AbstractOrderRepository):
                     unit_price=item.unit_price,
                     image=item.image,
                     currency=item.currency,
+                    customization=item.customization,
+                    customization_fee=item.customization_fee,
                 )
                 for item in row.items
             ],

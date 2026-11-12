@@ -140,3 +140,78 @@ async def test_list_categories_includes_seeded(client: TestClient) -> None:
     assert response.status_code == 200, response.text
     slugs = {category["slug"] for category in response.json()}
     assert "test-curated" in slugs
+
+
+# ── catalog contract: sale price, search, filters, sorting ──────────────
+
+
+def _make(name: str, price: str, **overrides: object) -> Product:
+    tag = uuid4().hex[:8]
+    product = _make_product()
+    product.slug = f"{name.lower().replace(' ', '-')}-{tag}"
+    product.name = name
+    product.price = Decimal(price)
+    for variant in product.variants:
+        variant.sku = f"{variant.sku}-{tag}"
+    for attr, value in overrides.items():
+        setattr(product, attr, value)
+    return product
+
+
+async def test_sale_price_exposes_a_computed_discount(client: TestClient) -> None:
+    on_sale = await _seed(
+        _make("Milan Home", "58500.00", original_price=Decimal("68000.00"), is_new_arrival=True)
+    )
+    full_price = await _seed(_make("Plain Shirt", "50000.00"))
+
+    sale = client.get(f"{API}/products/{on_sale.slug}").json()
+    assert sale["original_price"] == "68000.00"
+    assert sale["discount_percent"] == 14
+    assert sale["is_new_arrival"] is True
+
+    plain = client.get(f"{API}/products/{full_price.slug}").json()
+    assert plain["original_price"] is None
+    assert plain["discount_percent"] is None
+    assert plain["is_new_arrival"] is False
+
+
+async def test_search_tolerates_typos_and_reports_the_filtered_total(
+    client: TestClient,
+) -> None:
+    liverpool = await _seed(_make("Liverpool Home", "61500.00"))
+    await _seed(_make("Barcelona Away", "62000.00"))
+
+    body = client.get(f"{API}/products", params={"q": "liverpol"}).json()
+
+    assert [item["slug"] for item in body["items"]] == [liverpool.slug]
+    assert body["total"] == 1
+    assert body["total_pages"] == 1
+
+
+async def test_filters_and_sorting_combine(client: TestClient) -> None:
+    cheap = await _seed(_make("Cheap Kit", "40000.00", style="Gym Kit"))
+    dear = await _seed(_make("Dear Kit", "90000.00", style="Gym Kit"))
+    await _seed(_make("Other Shirt", "55000.00", style="Jersey"))
+
+    body = client.get(
+        f"{API}/products", params={"style": "gym kit", "sort": "price_desc"}
+    ).json()
+    assert [item["slug"] for item in body["items"]] == [dear.slug, cheap.slug]
+
+    ranged = client.get(
+        f"{API}/products", params={"min_price": "50000", "max_price": "60000"}
+    ).json()
+    assert ranged["total"] == 1
+
+
+async def test_bad_filter_values_are_rejected(client: TestClient) -> None:
+    assert client.get(f"{API}/products", params={"sort": "sideways"}).status_code == 422
+    assert client.get(f"{API}/products", params={"min_price": "-1"}).status_code == 422
+
+
+async def test_an_archived_product_is_not_found_by_slug_or_id(client: TestClient) -> None:
+    """Archiving hides a product everywhere a shopper can reach it, not just the list."""
+    hidden = await _seed(_make("Archived Shirt", "50000.00", is_active=False))
+
+    assert client.get(f"{API}/products/{hidden.slug}").status_code == 404
+    assert client.get(f"{API}/products/{hidden.id}").status_code == 404

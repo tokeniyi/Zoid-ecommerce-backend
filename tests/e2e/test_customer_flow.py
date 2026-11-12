@@ -55,9 +55,10 @@ from app.infrastructure.persistence.sqlalchemy.unit_of_work import (
 from app.integrations.payments import build_webhook_adapter
 from app.integrations.payments.paystack import PaystackPaymentGateway
 from app.security.authentication.session import session_strategy_from_settings
+from tests.support.delivery import CHECKOUT_DELIVERY
 from tests.unit.payments.test_order_notification import RecordingSender
 
-pytestmark = pytest.mark.database
+pytestmark = [pytest.mark.database, pytest.mark.usefixtures("basic_delivery_rates")]
 
 _settings = get_settings()
 API = _settings.api_v1_prefix
@@ -65,7 +66,8 @@ COOKIE = _settings.cookie_name
 GUEST = GUEST_CART_COOKIE
 PASSWORD = "Sup3rSecret!"
 PRICE = Decimal("42000.00")
-PRICE_KOBO = 4_200_000
+#: Goods (42,000) plus the standard delivery fee (2,500), in kobo.
+PRICE_KOBO = 4_450_000
 WEBHOOK_SECRET = "whsec_e2e_at_the_endpoint"
 OWNER_EMAIL = "owner@zoid.example"
 
@@ -73,8 +75,7 @@ CHECKOUT: dict[str, Any] = {
     "contact_name": "Ada Zoid",
     "contact_email": "ada@example.com",
     "contact_phone": "+234 800 000 0000",
-    "address_line": "12 Concrete Road",
-    "city_state": "Lagos State",
+    "delivery": CHECKOUT_DELIVERY,
 }
 
 #: A fresh starting id per process, so a redelivery test is never answered

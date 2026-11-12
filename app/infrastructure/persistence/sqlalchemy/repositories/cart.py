@@ -116,6 +116,7 @@ class SqlCartRepository(AbstractCartRepository):
             unit_price=item.unit_price,
             image=item.image,
             currency=item.currency,
+            customization=item.customization,
         )
 
     @staticmethod
@@ -136,6 +137,7 @@ class SqlCartRepository(AbstractCartRepository):
                     unit_price=item.unit_price,
                     image=item.image,
                     currency=item.currency,
+                    customization=item.customization,
                 )
                 for item in row.items
             ],

@@ -28,6 +28,7 @@ a consistent `{"detail": ...}` shape and never a stack trace.
 | `RateLimitError` | 429 | Too many requests |
 | `SignatureVerificationError` | 400 | Bad webhook signature |
 | `ProviderNotConfiguredError` | 501 | Selected provider lacks credentials |
+| `ProviderError` | 502 | A configured provider could not do what it was asked |
 
 ## Health
 
@@ -39,7 +40,7 @@ a consistent `{"detail": ...}` shape and never a stack trace.
 
 | Method | Path | Auth | Notes |
 | --- | --- | --- | --- |
-| POST | `/auth/signup` | none | Creates a customer and opens a session (201). |
+| POST | `/auth/signup` | none | Creates a customer account (`201`). It does **not** sign the user in: call `/auth/login` next to get the session cookie. Duplicate email is `409`. |
 | POST | `/auth/login` | none | Verifies credentials, sets the session cookie. Rate-limit friendly. |
 | POST | `/auth/logout` | session | Clears the session cookie. |
 | GET | `/auth/me` | session | The current principal's identity. |
@@ -55,9 +56,23 @@ a consistent `{"detail": ...}` shape and never a stack trace.
 
 | Method | Path | Auth | Notes |
 | --- | --- | --- | --- |
-| GET | `/products` | none | Paginated active products (`page`, `page_size`). Ordered oldest-first. |
+| GET | `/products` | none | Paginated active products (`page`, `page_size`). Oldest-first by default; see query parameters below. |
 | GET | `/products/{identifier}` | none | One product by slug or numeric id, with variants, stock and images. |
 | GET | `/categories` | none | Product categories. |
+
+`GET /products` query parameters (all optional, combinable):
+
+| Parameter | Meaning |
+| --- | --- |
+| `q` | Forgiving text search over name, category, colour, style and tone; typos are tolerated (`liverpol` finds Liverpool). Results are ranked by relevance. |
+| `category` | Category slug. |
+| `style`, `color`, `size` | Case-insensitive exact match (`size` = an offered size). |
+| `min_price`, `max_price` | Inclusive price range. |
+| `bestseller`, `special`, `new_arrival`, `on_sale` | Boolean flags. |
+| `sort` | `relevance` (default when `q` is set), `oldest` (default otherwise), `newest`, `price_asc`, `price_desc`, `name`. |
+
+Product responses carry `original_price`, `discount_percent` (computed from the two
+prices, never stored) and `is_new_arrival`. `total`/`total_pages` count the filtered set.
 
 There is no public write endpoint for the catalog; products are created/updated
 only through the admin surface below.
@@ -71,7 +86,7 @@ request — never a caller-supplied cart id — so cross-cart access is impossib
 | Method | Path | Auth | Notes |
 | --- | --- | --- | --- |
 | GET | `/cart` | none / session | The caller's cart; issues the guest cookie for anonymous carts. |
-| POST | `/cart/items` | none / session | Add `{product_slug, size, quantity}`. |
+| POST | `/cart/items` | none / session | Add `{product_slug, size, quantity, customization?}`. `customization` is optional free text (max 100 chars, e.g. `"Name: EDDY, #10"`). Lines merge only when product, size **and** text (trimmed, case-insensitive) all match. |
 | PATCH | `/cart/items/{item_id}` | none / session | Change a line's quantity. |
 | DELETE | `/cart/items/{item_id}` | none / session | Remove a line. |
 | POST | `/cart/merge` | session | Fold a guest cart into the now-authenticated user's cart and clear the guest cookie. |
@@ -84,16 +99,69 @@ request — never a caller-supplied cart id — so cross-cart access is impossib
 | POST | `/wishlist/items` | session | Save a product by slug. |
 | DELETE | `/wishlist/items/{product_slug}` | session | Remove a saved product. |
 
-## Orders
+## Delivery
 
-Checkout is authenticated and reads the caller's **server-side** cart; totals
-are computed from authoritative server prices, never from the client.
+Delivery is priced by the **server** from the shop's rate table; a request names
+*where* the order should go, never an amount.
 
 | Method | Path | Auth | Notes |
 | --- | --- | --- | --- |
-| POST | `/orders` | session | Check out the cart into a new order (`201`). New orders start `PENDING_PAYMENT`. |
-| GET | `/orders` | session | The caller's orders, newest first. |
+| POST | `/delivery/quote` | none | The fee for a destination. A place the shop does not serve is a normal answer (`support_required: true`, `fee: null`), not an error. |
+
+Request (`option` decides which other fields are needed):
+
+| `option` | Required fields | Notes |
+| --- | --- | --- |
+| `standard` | `address`, `city`, `state` — **or** `university` + `hostel_room` | Hand delivery. Lagos, Ogun and Port Harcourt only. A campus delivery is flagged `is_student`. |
+| `express` | `address`, `city`, `state` | Prioritised hand delivery, same area. |
+| `pickup` | `state`, `terminal` | Free, any state. A terminal the shop has not verified is accepted with `terminal_pending: true`. |
+| `enquiry` | — | Never priced (`support_required: true`); cannot be checked out. |
+
+The most specific matching rate wins: terminal, then university, then city, then
+state. With no matching rate there is no price, never a guess. Rates are loaded with
+`python -m app.cli.seed_delivery` (see the README); with an empty table every place
+answers `support_required`.
+
+## Archives (community stories)
+
+Customers share football memories; nothing a stranger typed appears publicly until
+the shop approves it. Reading is public (approved stories only, newest first);
+writing needs a session.
+
+| Method | Path | Auth | Notes |
+| --- | --- | --- | --- |
+| GET | `/archives` | none | Approved stories, paged; optional `category`. Responses carry no owner id, status or moderation note. |
+| GET | `/archives/{id}` | none | One approved story; pending and rejected ones are `404`. |
+| GET | `/archives/mine` | session | The caller's own stories in every status (`pending` / `approved` / `rejected`). |
+| POST | `/archives` | session | Submit `{title, author, content, location?, year?, category?, image_url?}`. It starts `pending`. `content` 10–5000 chars; `image_url` must be an http(s) address or a site path. |
+| PATCH | `/archives/{id}` | session (owner) | Edit your own story. **Any edit sends it back to `pending`**, so what the shop approved is what is shown. |
+| DELETE | `/archives/{id}` | session (owner) | Delete your own story (`204`); someone else's is `404`. |
+
+Moderation (admin, see below): `GET /admin/archives?status=pending` is the review
+queue and `PATCH /admin/archives/{id}/moderation` with `{status: approved|rejected,
+note?}` decides it. The note is private to the shop. Likes and comments, which the
+storefront prototype shows, are not part of the API yet.
+
+## Orders
+
+Checkout is authenticated and reads the caller's **server-side** cart; every amount
+is computed by the server from authoritative prices, never from the client:
+`total = subtotal (goods) + customization_total + delivery.fee`. Personalisation is
+charged per unit (`CUSTOMIZATION_FEE`, default 2,000) on products whose style is
+`Jersey`, and is snapshotted on each line as `customization_fee`.
+
+| Method | Path | Auth | Notes |
+| --- | --- | --- | --- |
+| POST | `/orders` | session | Check out the cart into a new order (`201`). Body: `contact_name`, `contact_email`, `contact_phone`, `delivery` (see above), optional `notes`. A destination that is not priced (unserved place, `enquiry`) is refused with `422` before any stock is reserved. New orders start `PENDING_PAYMENT`. |
+| GET | `/orders` | session | The caller's orders, newest first, **with their lines** (full order objects), so a profile screen needs one request, not one per order. |
 | GET | `/orders/{order_id}` | session | One of the caller's orders (someone else's is 404). |
+
+Every order carries two independent statuses. `payment_status` (`pending` /
+`paid` / `cancelled`) moves only through the payments workflow, and
+`payment_reference` / `paid_at` record the payment that settled it.
+`fulfillment_status` (`processing` / `in_transit` / `delivered`) is the shop's
+progress on a paid order and moves only through the admin endpoint below, so a
+late payment notification can never collide with a parcel in transit.
 
 ## Payments
 
@@ -116,9 +184,16 @@ directly — bypassing any frontend — gets 401 (no session) or 403 (wrong role
 
 | Method | Path | Auth | Notes |
 | --- | --- | --- | --- |
-| GET | `/admin/dashboard` | admin | Store-wide metrics. |
-| POST | `/admin/products` | admin | Create a product. |
-| PATCH | `/admin/products/{product_id}` | admin | Edit a product (including reversible `is_active`). |
-| POST | `/admin/products/{product_id}/stock` | admin | Restock a variant. |
-| GET | `/admin/orders` | admin | The order book. |
+| GET | `/admin/dashboard` | admin | Store-wide counts. |
+| GET | `/admin/analytics` | admin | Revenue, accounting, operations, best sellers and a daily trend for `date_from`..`date_to` (default: the current Mon–Sun week, store time; max 366 days), each compared with the period of equal length before it. **Revenue is money collected (paid orders)**; unpaid orders appear as `outstanding`, cancelled ones as neither. An order belongs to the day it was placed. Refunds are not netted off yet. |
+| GET | `/admin/products` | admin | The whole catalog, **hidden products included**. Takes the storefront's `q`/filters/`sort` plus `active` (true/false) and `stock` (`in_stock`/`low_stock`/`out_of_stock`). |
+| POST | `/admin/products/images` | admin | Upload a product image: send the raw image bytes as the request body (JPEG/PNG/GIF/WebP, up to `MAX_UPLOAD_BYTES`, default 5 MB). The type is read from the bytes, not the headers (SVG and anything else is `422`); the stored name is server-generated. Returns `{url, key, content_type, size}`; put `url` in a product's `images`. An unreachable or refusing store is `502`. S3-compatible stores need `STORAGE_PUBLIC_BASE_URL`. |
+| POST | `/admin/products` | admin | Create a product (`images` takes uploaded or already-hosted URLs). |
+| PATCH | `/admin/products/{product_id}` | admin | Edit a product. `is_active: false` archives it (gone from the storefront, list and product page); `true` restores it. |
+| POST | `/admin/products/{product_id}/stock` | admin | Restock a variant (adds units). |
+| PATCH | `/admin/products/{product_id}/stock` | admin | Correct a size's stock **up or down**: `{size, delta}` (`-3` removes three) or `{size, set_to}` (a stock-take). Never below the units already reserved for customers' orders (`422`). |
+| GET | `/admin/orders` | admin | The order book, newest first. Filters: `payment_status`, `fulfillment_status`, `delivery_option`, `q` (reference / name / email / phone), `date_from`, `date_to`. `total` counts what matched. |
+| PATCH | `/admin/orders/{order_id}/fulfillment` | admin | Body `{status?, terminal?}`: move a **paid** order between `processing` / `in_transit` / `delivered` (any stage may be corrected), and/or confirm the GUO terminal of a pickup order. An unpaid order is `409`; an empty body is `422`. Nothing is saved unless every part is accepted. |
+| GET | `/admin/archives` | admin | Every submitted story with owner and moderation note; filter `status=pending|approved|rejected`. |
+| PATCH | `/admin/archives/{story_id}/moderation` | admin | `{status: approved|rejected, note?}`: publish or reject a story. Cannot be set back to pending. |
 | GET | `/admin/users` | admin | The customer list. |

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
-from app.domains.cart.domain.entities import Cart, CartItem
+from app.domains.cart.domain.entities import MAX_CUSTOMIZATION_LENGTH, Cart, CartItem
 from app.shared.money import serialize_money
 
 
@@ -18,6 +18,7 @@ class CartItemResponse(BaseModel):
     line_total: str
     image: str
     currency: str
+    customization: str
 
 
 class CartResponse(BaseModel):
@@ -31,6 +32,11 @@ class AddItemRequest(BaseModel):
     product_slug: str = Field(min_length=1, max_length=160)
     size: str = Field(min_length=1, max_length=20)
     quantity: int = Field(default=1, ge=1, le=99)
+    customization: str = Field(
+        default="",
+        max_length=MAX_CUSTOMIZATION_LENGTH,
+        description='Optional personalisation text, e.g. "Name: EDDY, #10".',
+    )
 
 
 class UpdateItemRequest(BaseModel):
@@ -48,6 +54,7 @@ def serialize_item(item: CartItem) -> CartItemResponse:
         line_total=serialize_money(item.line_total),
         image=item.image,
         currency=item.currency,
+        customization=item.customization,
     )
 
 

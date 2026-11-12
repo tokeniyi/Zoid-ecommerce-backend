@@ -12,12 +12,16 @@
 #   5. stops everything and exits non-zero if any assertion failed
 #
 # Needs: PostgreSQL (psql) and Redis reachable locally, `uv`, python3, and the Postman CLI.
+# Database access uses the standard libpq variables: export PGPASSWORD (and PGUSER/PGHOST
+# if not postgres@localhost), or have a ~/.pgpass entry.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(dirname "$HERE")"
 POSTMAN_BIN="${POSTMAN_BIN:-postman}"
-export PGHOST="${PGHOST:-localhost}" PGUSER="${PGUSER:-postgres}" PGPASSWORD="${PGPASSWORD:-postgres}"
+# Standard libpq variables; set PGPASSWORD yourself (or rely on ~/.pgpass). Deliberately
+# no default password here: a credential does not belong in a script.
+export PGHOST="${PGHOST:-localhost}" PGUSER="${PGUSER:-postgres}"
 E2E_DB="${E2E_DB:-zoid_e2e}"
 API_PORT="${API_PORT:-8000}"
 MOCK_PORT="${MOCK_PORT:-9100}"
@@ -43,7 +47,8 @@ psql -q -d postgres -c "DROP DATABASE IF EXISTS $E2E_DB" -c "CREATE DATABASE $E2
 
 # The backend, configured entirely through its documented environment variables.
 export APP_ENV=development
-export DATABASE_URL="postgresql+asyncpg://$PGUSER:$PGPASSWORD@$PGHOST:5432/$E2E_DB"
+DATABASE_URL="$(E2E_DB="$E2E_DB" python3 "$HERE/db_url.py")"
+export DATABASE_URL
 export RATE_LIMIT_ENABLED=false
 export CORS_ORIGINS="http://localhost:3000"
 export PAYMENT_PROVIDER=paystack

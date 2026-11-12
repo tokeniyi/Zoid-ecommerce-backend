@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import secrets
 from uuid import uuid4
 
 import pytest
@@ -15,7 +16,7 @@ pytestmark = pytest.mark.database
 _settings = get_settings()
 API = _settings.api_v1_prefix
 COOKIE = _settings.cookie_name
-PASSWORD = "Sup3rSecret!"
+PASSWORD = secrets.token_urlsafe(16)  # fresh every run: no credential in the source
 BODY = "Watching Ronaldo on a CRT television in Surulere changed how I saw football."
 STORY = {"title": "The 1998 Samba Memory", "author": "Tunde O.", "content": BODY,
          "location": "Lagos, Nigeria", "year": "1998"}

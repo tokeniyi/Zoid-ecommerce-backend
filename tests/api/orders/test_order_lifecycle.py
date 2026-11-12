@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import secrets
 from decimal import Decimal
 from uuid import uuid4
 
@@ -29,7 +30,7 @@ pytestmark = [pytest.mark.database, pytest.mark.usefixtures("basic_delivery_rate
 _settings = get_settings()
 API = _settings.api_v1_prefix
 COOKIE = _settings.cookie_name
-PASSWORD = "Sup3rSecret!"
+PASSWORD = secrets.token_urlsafe(16)  # fresh every run: no credential in the source
 CONTACT = {
     "contact_name": "Ada Zoid",
     "contact_email": "ada@example.com",

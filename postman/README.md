@@ -20,8 +20,10 @@ Postman CLI. The script:
 4. regenerates the collection, **fails if any API operation has no request**, and runs it;
 5. stops everything and exits non-zero if any assertion failed.
 
-Useful variables: `E2E_DB`, `API_PORT` (8000), `MOCK_PORT` (9100), `PGHOST`/`PGUSER`/
-`PGPASSWORD`, `ADMIN_EMAIL`. The admin password and JWT secret are random per run.
+Database access uses the standard libpq variables: `export PGPASSWORD=...` first (and
+`PGUSER`/`PGHOST` if it isn't `postgres@localhost`), or use `~/.pgpass`. No password is
+built into the scripts. Other variables: `E2E_DB`, `API_PORT` (8000), `MOCK_PORT`
+(9100), `ADMIN_EMAIL`. The admin password and JWT secret are random per run.
 `./postman/run.sh --serve` starts the stack and leaves it running, for poking at by hand.
 
 To use the collection in the Postman app instead, import
